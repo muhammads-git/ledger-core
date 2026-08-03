@@ -8,6 +8,7 @@ import os
 load_dotenv()
 # create physical connectio with db .. engine
 engine=create_engine(os.getenv('DATABASE_URL'))
+
 # create sessions with db
 SessionLocal = sessionmaker(bind=engine)
 BASE = declarative_base()
