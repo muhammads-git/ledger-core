@@ -24,6 +24,9 @@ class Account(BASE):
     
     # Public ID: Stored as a string, defaults to a random UUID4
     public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False)
+
+    # account type id, 
+    account_type_id = Column(Integer, ForeignKey('account_types.id'),nullable=False)
     
     # Account status (e.g., 'active', 'frozen', 'closed')
     status = Column(String(20), default='active', nullable=False)
@@ -45,6 +48,7 @@ class AccountType(BASE):
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(50), nullable=False) # e.g., "Standard Checking"
+
     
     # .value so SQLAlchemy stores the raw string ('CHECKINGS') in the database
     code = Column(String(20), default=AccountTypeCode.CHECKINGS.value, nullable=False)
