@@ -1,8 +1,24 @@
-from sqlalchemy import String,Column,BigInteger,Integer,DateTime,ForeignKey,Enum
+from sqlalchemy import String,Column,BigInteger,Integer,DateTime,ForeignKey,Numeric
 from sqlalchemy.orm import sessionmaker,mapped_column,Mapped
 from api.database import BASE
 import uuid
 from datetime import datetime,timezone
+from enum import Enum
+
+# ENUMSSS
+class AccountTypeCode(Enum):
+    CHECKINGS = 'CHECKINGS'
+    SAVINGS = 'SAVINGS'       
+    SYSTEM_FEES = 'SYSTEM_FEES'
+class TransactionStatus(Enum):
+    pending = "PENDING"
+    completed = "COMPLETED"
+    failed = "FAILED"
+
+class TransactionType(Enum):
+    transfer = "TRANSFER"
+    withdrawl = "WITHDRAWL"
+    deposit = "DEPOSIT"
 
 class User(BASE):
    __tablename__ = 'users'
@@ -27,7 +43,7 @@ class Account(BASE):
 
     # account type id, 
     account_type_id = Column(Integer, ForeignKey('account_types.id'),nullable=False)
-    
+
     # Account status (e.g., 'active', 'frozen', 'closed')
     status = Column(String(20), default='active', nullable=False)
     
@@ -37,10 +53,7 @@ class Account(BASE):
     # Timezone-aware creation time
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
-class AccountTypeCode(Enum):
-    CHECKINGS = 'CHECKINGS'
-    SAVINGS = 'SAVINGS'       
-    SYSTEM_FEES = 'SYSTEM_FEES'
+
 
 # 2. Your AccountType Table
 class AccountType(BASE):
@@ -49,8 +62,46 @@ class AccountType(BASE):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(50), nullable=False) # e.g., "Standard Checking"
 
-    
     # .value so SQLAlchemy stores the raw string ('CHECKINGS') in the database
     code = Column(String(20), default=AccountTypeCode.CHECKINGS.value, nullable=False)
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+
+
+class Transaction(BASE):
+    __tablename__ = "transactions"
+
+    id = Column(Integer, primary_key=True,autoincrement=True)
+
+    public_id = Column(String(36),default=lambda: str(uuid.uuid4()),unique=True, nullable=False)
+
+    account_id = Column(Integer,ForeignKey('accounts.id'),nullable=False)
+
+    status = Column(String, default=TransactionStatus.pending)
+
+    # default transaction type is transfer
+    type = Column(String, default=TransactionType.transfer)
+
+    created_at = Column(DateTime,default=lambda: datetime.now(timezone.utc),nullable=False)
+
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc),nullable=False)
+
+    description = Column(String(255),nullable=False)
+
+
+class LedgerEntries(BASE):
+    __tablename__ = "ledger_entries"
+
+    id = Column(Integer, primary_key=True,autoincrement=True)
+
+    transaction_id = Column(Integer,ForeignKey('transactions.id'),nullable=True)
+
+    account_id = Column(Integer,ForeignKey('accounts.id'),nullable=False)
+
+    # Numeric not flaot.
+    amount = Column(Numeric(precision=12,scale=2),nullable=False)
+
+    created_at = Column(DateTime,default=lambda: datetime.now(timezone.utc),nullable=False)
+    
