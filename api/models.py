@@ -1,9 +1,10 @@
-from sqlalchemy import String,Column,BigInteger,Integer,DateTime,ForeignKey,Numeric
+from sqlalchemy import String,Column,BigInteger,Integer,DateTime,ForeignKey,Numeric,Index
 from sqlalchemy.orm import sessionmaker,mapped_column,Mapped
 from api.database import BASE
 import uuid
 from datetime import datetime,timezone
 from enum import Enum
+
 
 # ENUMSSS
 class AccountTypeCode(Enum):
@@ -21,15 +22,22 @@ class TransactionType(Enum):
     deposit = "DEPOSIT"
 
 class User(BASE):
-   __tablename__ = 'users'
+    __tablename__ = 'users'
+    
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    first_name = Column(String(50), nullable=False)
+    
+    last_name = Column(String(50), nullable=True) 
+    
+    email = Column(String(100), index=True, unique=True, nullable=False)
+    password = Column(String(255), nullable=False)
 
-   id = Column(Integer,primary_key=True,autoincrement=True)
-   first_name = Column(String,index=True,nullable=False)
-   last_name = Column(String,)
-   email = Column(String,index=True,nullable=False)
-   password = Column(String,nullable=False)
-   created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-   
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    #  Composite Index on full name search
+    __table_args__ = (
+        Index('idx_user_full_name', 'first_name', 'last_name'),
+    )
 
 class Account(BASE):
     __tablename__ = 'accounts'
