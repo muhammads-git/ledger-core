@@ -1,12 +1,32 @@
-from pydantic import BaseModel
+from pydantic import BaseModel,Field
+import uuid
+from decimal import Decimal
+from enum import Enum
 
-class CreateAccount(BaseModel):
-   account_type : str
+
+############  AUTHENTICATIONS
+class UserRegister(BaseModel):
    first_name : str
    last_name : str
-   currency : str
-   
+   email : str
+   password : str
+
+class UserLogin(BaseModel):
+   email : str
+   password : str
+
+
+####################### 
+class CurrencyEnum(str,Enum):
+   PKR = 'PKR'
+   USD = 'USD'
+
+class CreateAccountRequest(BaseModel):
+   account_type : str
+   currency : CurrencyEnum
+
 class TransferCredentials(BaseModel):
-   public_id : str
-   money : int
+   reciever_public_id : uuid.UUID
+   money : Decimal = Field(gt=0, decimal_places=2)
+
    
