@@ -54,7 +54,14 @@ def login(user : UserLogin, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
    #  create token
-    accessToken = createAccessToken(data={'sub':user.username})
+   
+   # using user email as subject in jwt, so that it returns email as after decoding for better
+   # uniqueness and varifications..
+
+   # user lowercase subjects for better 
+    lowerCaseEmail= user.email.strip().lower()
+    accessToken = createAccessToken(data={'sub':lowerCaseEmail})
+
     print(accessToken)
    # return access token and its type
     return {'access_token': accessToken, 'token_type': 'bearer'}
