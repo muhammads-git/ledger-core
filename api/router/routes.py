@@ -1,7 +1,7 @@
 from fastapi import FastAPI,HTTPException,Depends,APIRouter
 from sqlalchemy.orm import Session
 from api.database import get_db
-from api.scehma.schema import TransferCredentials
+from api.schema.schema import TransferCredentials
 from api.models import Account,AccountType,Transaction,LedgerEntries
 
 
