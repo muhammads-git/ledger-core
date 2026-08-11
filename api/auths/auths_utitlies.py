@@ -4,6 +4,8 @@ from dotenv import load_dotenv
 import os
 from datetime import datetime , timedelta
 from datetime import datetime,timezone,timedelta
+from fastapi import Depends,HTTPException
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 load_dotenv()
 
 
@@ -58,12 +60,11 @@ def decodeToken(token: str) -> str | None:
         return None
 
 
-############# GET CURRENT USER ###################
-def getCurrentUser(token : str):
-    # decode token fetch the email.
-    try:
-        payload = decodeToken(token)
-        email = payload.get('sub')
-    except JWTError:
-        return None
-        
+################ GET CURRENT USER ######################
+oauth_scheme = OAuth2PasswordBearer(tokenUrl='/api/login')
+def getCurrentUser(token: str = Depends(oauth_scheme)):
+    payload = decodeToken(token)
+    if not payload:
+        raise HTTPException(status_code=401, detail='Invalid or expired token')
+    email = payload.get('sub')
+    return email
