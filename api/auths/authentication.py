@@ -1,4 +1,4 @@
-from api.scehma.schema import UserLogin,UserRegister
+from api.schema.schema import UserLogin,UserRegister
 from fastapi import APIRouter,Depends,HTTPException
 from sqlalchemy.orm import Session
 from api.database import get_db
