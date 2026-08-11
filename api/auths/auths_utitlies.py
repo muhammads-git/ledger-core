@@ -56,3 +56,14 @@ def decodeToken(token: str) -> str | None:
         return payload.get('sub')  # Returns the pre-lowercased string directly
     except JWTError:
         return None
+
+
+############# GET CURRENT USER ###################
+def getCurrentUser(token : str):
+    # decode token fetch the email.
+    try:
+        payload = decodeToken(token)
+        email = payload.get('sub')
+    except JWTError:
+        return None
+        

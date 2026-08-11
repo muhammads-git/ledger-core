@@ -36,27 +36,21 @@ def register(user : UserRegister, db : Session = Depends(get_db)):
    return {'success': True,
            'message':'User registraion successful!',
            'details':{
-              'email':new_user.email,
-              'password':new_user.password
+              'email':new_user.email
            }}
 
 
 # Login route
-@auths_router.post('/login')
-def login(user : UserLogin, db: Session = Depends(get_db)):
+@auths_router.post('/api/login')
+def login(user_data : UserLogin, db: Session = Depends(get_db)):
     # now the OAuth2PasswordRequestForm will automatically handle forms
     print('i am hitting your login for authentication....')
     user = db.query(User).filter(
-        (User.email == user.email)
+        (User.email == user_data.email)
     ).first()
 
-    if not user or not checkPassword(user.password, User.password):
+    if not user or not checkPassword(user_data.password, user.password):
         raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-   #  create token
-   
-   # using user email as subject in jwt, so that it returns email as after decoding for better
-   # uniqueness and varifications..
 
    # user lowercase subjects for better 
     lowerCaseEmail= user.email.strip().lower()
