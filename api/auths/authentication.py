@@ -2,8 +2,8 @@ from api.schema.schema import UserLogin,UserRegister
 from fastapi import APIRouter,Depends,HTTPException
 from sqlalchemy.orm import Session
 from api.database import get_db
-from api.models import User,AccountType,Account,AccountTypeCode
-from api.auths.auths_utitlies import hashPassword,checkPassword,createAccessToken,decodeToken
+from api.models import User,AccountType,Account,AccountTypeCode,RefreshToken
+from api.auths.auths_utitlies import hashPassword,checkPassword,createAccessToken,decodeToken,createRefreshToken
 
 auths_router = APIRouter()
 
@@ -56,7 +56,14 @@ def login(user_data : UserLogin, db: Session = Depends(get_db)):
     lowerCaseEmail= user.email.strip().lower()
     accessToken = createAccessToken(data={'sub':lowerCaseEmail})
 
-    print(accessToken)
+    # create refresh token
+    refreshToken = createRefreshToken()
+    # save into db
+    new_token = RefreshToken(
+        user_id=user.id,
+        token=refreshToken
+        )
+
    # return access token and its type
     return {'access_token': accessToken, 'token_type': 'bearer'}
 

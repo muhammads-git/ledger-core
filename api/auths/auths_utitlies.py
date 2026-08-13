@@ -6,6 +6,7 @@ from datetime import datetime , timedelta
 from datetime import datetime,timezone,timedelta
 from fastapi import Depends,HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+import uuid
 load_dotenv()
 
 
@@ -37,7 +38,7 @@ SECRET_KEY = os.getenv('APP_SECRET')
 expiry_env = os.getenv('ACCESS_TOKEN_EXPIRY', '30')
 ACCESS_TOKEN_EXPIRE_MINUTES = int(expiry_env)
 
-
+############## TOKENS ##################
 def createAccessToken(data: dict) -> str:
     """Generates a JWT token with an expiration timestamp.
      Assumes 'sub' contains a pre-lowercased email.
@@ -50,11 +51,11 @@ def createAccessToken(data: dict) -> str:
     encodedJWT = jwt.encode(toEncode, SECRET_KEY, algorithm=ALGORITHM)
     return encodedJWT
 
-def createRefreshToken(data : dict) -> str:
-    
-    pass
+def createRefreshToken() -> str:
+    """ just a uuid4 string """
+    return uuid.uuid4
 
-
+############## Decode ################
 def decodeToken(token: str) -> str | None:
     """Decodes a JWT token and returns the user email string if valid."""
     try:
