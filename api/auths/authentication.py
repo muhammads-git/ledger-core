@@ -3,7 +3,7 @@ from fastapi import APIRouter,Depends,HTTPException
 from sqlalchemy.orm import Session
 from api.database import get_db
 from api.models import User,AccountType,Account,AccountTypeCode,RefreshToken
-from api.auths.auths_utitlies import hashPassword,checkPassword,createAccessToken,decodeToken,createRefreshToken
+from api.auths.auths_utitlies import hashPassword,checkPassword,createAccessToken,decodeToken,createRefreshToken,getCurrentUser
 
 auths_router = APIRouter()
 
@@ -67,3 +67,8 @@ def login(user_data : UserLogin, db: Session = Depends(get_db)):
    # return access token and its type
     return {'access_token': accessToken, 'token_type': 'bearer'}
 
+##### refresh token endpoint
+# making a decorator : which call this enpoint automatically when access token expires
+@auths_router.post('/refresh')
+def refresh_token(db : Session = Depends(get_db),current_user = Depends(getCurrentUser)):
+    pass
