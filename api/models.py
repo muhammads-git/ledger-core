@@ -1,8 +1,8 @@
-from sqlalchemy import String,Column,BigInteger,Integer,DateTime,ForeignKey,Numeric,Index
+from sqlalchemy import String,Column,BigInteger,Integer,DateTime,ForeignKey,Numeric,Index,Boolean
 from sqlalchemy.orm import sessionmaker,mapped_column,Mapped
 from api.database import BASE
 import uuid
-from datetime import datetime,timezone
+from datetime import datetime,timezone,timedelta
 from enum import Enum
 
 
@@ -39,6 +39,17 @@ class User(BASE):
         Index('idx_user_full_name', 'first_name', 'last_name'),
     )
 
+# refresh token schema
+class RefreshToken(BASE):
+    __tablename__ = 'refresh_tokens'
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    token = Column(String, unique=True, nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'))
+    expires_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc) + timedelta(days=7))
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    is_revoked = Column(Boolean, default=False, nullable=False)
+    
 class Account(BASE):
     __tablename__ = 'accounts'
     

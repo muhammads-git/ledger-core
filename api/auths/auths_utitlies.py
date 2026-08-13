@@ -50,6 +50,10 @@ def createAccessToken(data: dict) -> str:
     encodedJWT = jwt.encode(toEncode, SECRET_KEY, algorithm=ALGORITHM)
     return encodedJWT
 
+def createRefreshToken(data : dict) -> str:
+    
+    pass
+
 
 def decodeToken(token: str) -> str | None:
     """Decodes a JWT token and returns the user email string if valid."""
