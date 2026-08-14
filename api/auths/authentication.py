@@ -43,7 +43,7 @@ def register(user : UserRegister, db : Session = Depends(get_db)):
 
 # Login route
 @auths_router.post('/api/login')
-def login(user_data : UserLogin, db: Session = Depends(get_db)):
+def login(response : Response, user_data : UserLogin, db: Session = Depends(get_db)):
     # now the OAuth2PasswordRequestForm will automatically handle forms
     print('i am hitting your login for authentication....')
     user = db.query(User).filter(
@@ -59,7 +59,13 @@ def login(user_data : UserLogin, db: Session = Depends(get_db)):
 
     # create refresh token
     refreshToken = createRefreshToken()
-    # save to front end httpOnly
+    # save to httOnly cookie
+    response.set_cookie(key='refresh_token',
+                        value = refreshToken,
+                        max_age=604800,
+                        secure=False,
+                        httponly=True,
+                        samesite='lax')
 
     # save into db
     new_token = RefreshToken(
@@ -80,15 +86,31 @@ def refresh_token(response : Response, db : Session = Depends(get_db), current_u
     3. old refresh is_revoked=True
     4, create refres token save to db.
     """
-    cookie_refresh_token = response.get('refresh_token')
+    # automatically fetch token from browser cookie.
+    cookie_refresh_token = response.cookies.get('refresh_token')
+    if not cookie_refresh_token:
+        raise HTTPException(status_code=401,detail='Refresh token is missing.')
+    
     # get from db
     db_refresh_token =db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id).scalar()
-
+    if not db_refresh_token:
+        raise HTTPException(status_code=401,detail='Invalid or expired refresh token.')
+    
     if cookie_refresh_token == db_refresh_token:
+        # create Access token 
+        new_access_token = createAccessToken({'sub':current_user.email})
         # is_revoked = True where refresh token is this...
         token = db.query(RefreshToken.is_revoked).filter(RefreshToken.token == db_refresh_token).first()
-        # 
         token.is_revoked = True
+        # create Refresh token
+        new_refresh_token = createRefreshToken()
+        # save to db
+        new_token = RefreshToken(
+            user_id=current_user.id,
+            token=new_refresh_token
+            )
         
+        
+
         
         
