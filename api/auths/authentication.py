@@ -1,9 +1,10 @@
 from api.schema.schema import UserLogin,UserRegister
-from fastapi import APIRouter,Depends,HTTPException
+from fastapi import APIRouter,Depends,HTTPException,Response
 from sqlalchemy.orm import Session
 from api.database import get_db
 from api.models import User,AccountType,Account,AccountTypeCode,RefreshToken
 from api.auths.auths_utitlies import hashPassword,checkPassword,createAccessToken,decodeToken,createRefreshToken,getCurrentUser
+from api.auths.auths_utitlies import createRefreshToken,createAccessToken
 
 auths_router = APIRouter()
 
@@ -58,6 +59,8 @@ def login(user_data : UserLogin, db: Session = Depends(get_db)):
 
     # create refresh token
     refreshToken = createRefreshToken()
+    # save to front end httpOnly
+
     # save into db
     new_token = RefreshToken(
         user_id=user.id,
@@ -70,5 +73,22 @@ def login(user_data : UserLogin, db: Session = Depends(get_db)):
 ##### refresh token endpoint
 # making a decorator : which call this enpoint automatically when access token expires
 @auths_router.post('/refresh')
-def refresh_token(db : Session = Depends(get_db),current_user = Depends(getCurrentUser)):
-    pass
+def refresh_token(response : Response, db : Session = Depends(get_db), current_user = Depends(getCurrentUser)):
+    """ 
+    1. Check Old vd Old refresh token
+    2. create fresh access token
+    3. old refresh is_revoked=True
+    4, create refres token save to db.
+    """
+    cookie_refresh_token = response.get('refresh_token')
+    # get from db
+    db_refresh_token =db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id).scalar()
+
+    if cookie_refresh_token == db_refresh_token:
+        # is_revoked = True where refresh token is this...
+        token = db.query(RefreshToken.is_revoked).filter(RefreshToken.token == db_refresh_token).first()
+        # 
+        token.is_revoked = True
+        
+        
+        
