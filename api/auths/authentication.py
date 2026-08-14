@@ -92,7 +92,7 @@ def refresh_token(response : Response, db : Session = Depends(get_db), current_u
         raise HTTPException(status_code=401,detail='Refresh token is missing.')
     
     # get from db
-    db_refresh_token =db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id).scalar()
+    db_refresh_token =db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id and RefreshToken.is_revoked == False).scalar()
     if not db_refresh_token:
         raise HTTPException(status_code=401,detail='Invalid or expired refresh token.')
     
@@ -109,7 +109,10 @@ def refresh_token(response : Response, db : Session = Depends(get_db), current_u
             user_id=current_user.id,
             token=new_refresh_token
             )
-        
+        # add to DB
+        db.add(new_token)
+        db.commit()
+    return {'accessToken':new_access_token,'token_type': 'bearer'}
         
 
         
