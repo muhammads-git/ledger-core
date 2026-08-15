@@ -1,10 +1,11 @@
 from api.schema.schema import UserLogin,UserRegister
-from fastapi import APIRouter,Depends,HTTPException,Response
+from fastapi import APIRouter,Depends,HTTPException,Response,Request
 from sqlalchemy.orm import Session
 from api.database import get_db
 from api.models import User,AccountType,Account,AccountTypeCode,RefreshToken
 from api.auths.auths_utitlies import hashPassword,checkPassword,createAccessToken,decodeToken,createRefreshToken,getCurrentUser
 from api.auths.auths_utitlies import createRefreshToken,createAccessToken
+from datetime import datetime,timezone
 
 auths_router = APIRouter()
 
@@ -72,48 +73,57 @@ def login(response : Response, user_data : UserLogin, db: Session = Depends(get_
         user_id=user.id,
         token=refreshToken
         )
+    db.add(new_token)
+    db.commit()
 
    # return access token and its type
     return {'access_token': accessToken, 'token_type': 'bearer'}
 
-##### refresh token endpoint
-# making a decorator : which call this enpoint automatically when access token expires
 @auths_router.post('/refresh')
-def refresh_token(response : Response, db : Session = Depends(get_db), current_user = Depends(getCurrentUser)):
-    """ 
-    1. Check Old vd Old refresh token
-    2. create fresh access token
-    3. old refresh is_revoked=True
-    4, create refres token save to db.
-    """
-    # automatically fetch token from browser cookie.
-    cookie_refresh_token = response.cookies.get('refresh_token')
+def refresh_token(request: Request, response: Response, db: Session = Depends(get_db), current_user = Depends(getCurrentUser)):
+    
+    # read from cookie
+    cookie_refresh_token = request.cookies.get('refresh_token')
     if not cookie_refresh_token:
-        raise HTTPException(status_code=401,detail='Refresh token is missing.')
+        raise HTTPException(status_code=401, detail='Refresh token missing')
     
-    # get from db
-    db_refresh_token =db.query(RefreshToken).filter(RefreshToken.user_id == current_user.id and RefreshToken.is_revoked == False).scalar()
-    if not db_refresh_token:
-        raise HTTPException(status_code=401,detail='Invalid or expired refresh token.')
+    # validate in DB
+    db_token = db.query(RefreshToken).filter(
+        RefreshToken.token == cookie_refresh_token,
+        RefreshToken.user_id == current_user.id,
+        RefreshToken.is_revoked == False
+    ).first()
     
-    if cookie_refresh_token == db_refresh_token:
-        # create Access token 
-        new_access_token = createAccessToken({'sub':current_user.email})
-        # is_revoked = True where refresh token is this...
-        token = db.query(RefreshToken.is_revoked).filter(RefreshToken.token == db_refresh_token).first()
-        token.is_revoked = True
-        # create Refresh token
-        new_refresh_token = createRefreshToken()
-        # save to db
-        new_token = RefreshToken(
-            user_id=current_user.id,
-            token=new_refresh_token
-            )
-        # add to DB
-        db.add(new_token)
-        db.commit()
-    return {'accessToken':new_access_token,'token_type': 'bearer'}
-        
-
-        
-        
+    if not db_token:
+        raise HTTPException(status_code=401, detail='Invalid or expired refresh token')
+    
+    # check expiry
+    if db_token.expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=401, detail='Refresh token expired')
+    
+    # revoke old token
+    db_token.is_revoked = True
+    db.commit()
+    
+    # create new tokens
+    new_access_token = createAccessToken({'sub': current_user.email})
+    new_refresh_token = createRefreshToken()
+    
+    # save new refresh token to DB
+    db.add(RefreshToken(
+        user_id=current_user.id,
+        token=new_refresh_token
+    ))
+    db.commit()
+    
+    # set new refresh token in cookie
+    response.set_cookie(
+        key='refresh_token',
+        value=new_refresh_token,
+        max_age=604800,
+        httponly=True,
+        secure=False,
+        samesite='lax'
+    )
+    
+    return {'access_token': new_access_token, 'token_type': 'bearer'}

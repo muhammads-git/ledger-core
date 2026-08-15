@@ -53,7 +53,7 @@ def createAccessToken(data: dict) -> str:
 
 def createRefreshToken() -> str:
     """ just a uuid4 string """
-    return uuid.uuid4
+    return str(uuid.uuid4())
 
 ############## Decode ################
 def decodeToken(token: str) -> str | None:
