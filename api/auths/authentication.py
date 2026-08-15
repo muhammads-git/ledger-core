@@ -80,9 +80,9 @@ def login(response : Response, user_data : UserLogin, db: Session = Depends(get_
     return {'access_token': accessToken, 'token_type': 'bearer'}
 
 @auths_router.post('/refresh')
-def refresh_token(request: Request, response: Response, db: Session = Depends(get_db), current_user = Depends(getCurrentUser)):
+def refresh_token(request: Request, response: Response, db: Session = Depends(get_db)):
     
-    # read from cookie
+    # read refresh token from cookie
     cookie_refresh_token = request.cookies.get('refresh_token')
     if not cookie_refresh_token:
         raise HTTPException(status_code=401, detail='Refresh token missing')
@@ -90,28 +90,32 @@ def refresh_token(request: Request, response: Response, db: Session = Depends(ge
     # validate in DB
     db_token = db.query(RefreshToken).filter(
         RefreshToken.token == cookie_refresh_token,
-        RefreshToken.user_id == current_user.id,
         RefreshToken.is_revoked == False
     ).first()
     
     if not db_token:
-        raise HTTPException(status_code=401, detail='Invalid or expired refresh token')
+        raise HTTPException(status_code=401, detail='Invalid or revoked refresh token')
     
     # check expiry
     if db_token.expires_at < datetime.now(timezone.utc):
         raise HTTPException(status_code=401, detail='Refresh token expired')
+    
+    # get user
+    user = db.query(User).filter(User.id == db_token.user_id).first()
+    if not user:
+        raise HTTPException(status_code=401, detail='User not found')
     
     # revoke old token
     db_token.is_revoked = True
     db.commit()
     
     # create new tokens
-    new_access_token = createAccessToken({'sub': current_user.email})
+    new_access_token = createAccessToken({'sub': user.email})
     new_refresh_token = createRefreshToken()
     
     # save new refresh token to DB
     db.add(RefreshToken(
-        user_id=current_user.id,
+        user_id=user.id,
         token=new_refresh_token
     ))
     db.commit()
@@ -127,3 +131,5 @@ def refresh_token(request: Request, response: Response, db: Session = Depends(ge
     )
     
     return {'access_token': new_access_token, 'token_type': 'bearer'}
+
+# 563d17fd-a514-4e97-bb74-49819b508de8
