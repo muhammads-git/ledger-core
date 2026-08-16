@@ -22,6 +22,7 @@ class CurrencyEnum(str,Enum):
    USD = 'USD'
 
 class CreateAccountRequest(BaseModel):
+   name : Enum
    account_type : str
    currency : CurrencyEnum
 

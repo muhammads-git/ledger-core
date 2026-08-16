@@ -11,6 +11,7 @@ class AccountTypeCode(Enum):
     CHECKINGS = 'CHECKINGS'
     SAVINGS = 'SAVINGS'       
     SYSTEM_FEES = 'SYSTEM_FEES'
+    
 class TransactionStatus(Enum):
     pending = "PENDING"
     completed = "COMPLETED"
@@ -20,6 +21,12 @@ class TransactionType(Enum):
     transfer = "TRANSFER"
     withdrawl = "WITHDRAWL"
     deposit = "DEPOSIT"
+
+class AccountTypeName(str, Enum):
+    SAVINGS = "Savings Account"
+    CHECKING = "Standard Checking"
+    BUSINESS = "Business Account"
+    WALLET = "Digital Wallet"
 
 class User(BASE):
     __tablename__ = 'users'
@@ -79,14 +86,12 @@ class AccountType(BASE):
     __tablename__ = 'account_types'
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(String(50), nullable=False) # e.g., "Standard Checking"
+    name = Column(Enum(AccountTypeName), nullable=False) # e.g., "Standard Checking"
 
     # .value so SQLAlchemy stores the raw string ('CHECKINGS') in the database
     code = Column(String(20), default=AccountTypeCode.CHECKINGS.value, nullable=False)
     
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-
-
 
 
 class Transaction(BASE):
