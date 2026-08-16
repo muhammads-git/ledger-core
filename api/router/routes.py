@@ -29,8 +29,18 @@ def create_account(account : CreateAccountRequest,db : Session = Depends(get_db)
    db.add(new_acc)
    db.commit()
 
+   return {
+      'success': True,
+      'message': 'Account created.',
+      'details' : {
+         'public_id':new_acc.public_id,
+         'account_status':new_acc.status,
+         'currency': new_acc.currency
+      }
+   }
 
-   
+
+
 
 
 
