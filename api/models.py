@@ -1,28 +1,28 @@
-from sqlalchemy import String,Column,BigInteger,Integer,DateTime,ForeignKey,Numeric,Index,Boolean
+from sqlalchemy import String,Column,BigInteger,Integer,DateTime,ForeignKey,Numeric,Index,Boolean,Enum as sqlEnum
 from sqlalchemy.orm import sessionmaker,mapped_column,Mapped
 from api.database import BASE
 import uuid
 from datetime import datetime,timezone,timedelta
-from enum import Enum
+import enum
 
 
 # ENUMSSS
-class AccountTypeCode(Enum):
+class AccountTypeCode(str,enum.Enum):
     CHECKINGS = 'CHECKINGS'
     SAVINGS = 'SAVINGS'       
     SYSTEM_FEES = 'SYSTEM_FEES'
-    
-class TransactionStatus(Enum):
+
+class TransactionStatus(str,enum.Enum):
     pending = "PENDING"
     completed = "COMPLETED"
     failed = "FAILED"
 
-class TransactionType(Enum):
+class TransactionType(str,enum.Enum):
     transfer = "TRANSFER"
     withdrawl = "WITHDRAWL"
     deposit = "DEPOSIT"
 
-class AccountTypeName(str, Enum):
+class AccountTypeName(str, enum.Enum):
     SAVINGS = "Savings Account"
     CHECKING = "Standard Checking"
     BUSINESS = "Business Account"
@@ -86,7 +86,7 @@ class AccountType(BASE):
     __tablename__ = 'account_types'
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(Enum(AccountTypeName), nullable=False) # e.g., "Standard Checking"
+    name = Column(sqlEnum(AccountTypeName), nullable=False) # e.g., "Standard Checking"
 
     # .value so SQLAlchemy stores the raw string ('CHECKINGS') in the database
     code = Column(String(20), default=AccountTypeCode.CHECKINGS.value, nullable=False)

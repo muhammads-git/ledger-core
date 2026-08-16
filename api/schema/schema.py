@@ -2,7 +2,7 @@ from pydantic import BaseModel,Field
 import uuid
 from decimal import Decimal
 from enum import Enum
-
+from api.models import AccountTypeName,AccountTypeCode
 
 ############  AUTHENTICATIONS
 class UserRegister(BaseModel):
@@ -22,8 +22,8 @@ class CurrencyEnum(str,Enum):
    USD = 'USD'
 
 class CreateAccountRequest(BaseModel):
-   name : Enum
-   account_type : str
+   name : AccountTypeName
+   account_type : AccountTypeName
    currency : CurrencyEnum
 
 class TransferCredentials(BaseModel):
