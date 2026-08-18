@@ -53,5 +53,18 @@ def create_account(
 def get_account_details(db : Session = Depends(get_db),current_user = Depends(getCurrentUser)):
 
    """ fetch account details """
-   pass
+   # raw_data = db.execute(' SELECT account_types.name, accounts.public_id,account.currency, account.status ' \
+   # 'FROM account_types IN JOIN accounts WHERE account_types.id = accounts.account_type_id')
+   r_data = db.query(
+        AccountType.name,
+        Account.public_id,
+        Account.currency,
+        Account.status
+    ).join(Account, AccountType.id == Account.account_type_id).filter(Account.user_id == current_user.id).first()
+
+   data = r_data._asdict() # asdict changes the sql object to a dict type...
+
+   
+   return {'successs': True,
+           'detail':data}
 
