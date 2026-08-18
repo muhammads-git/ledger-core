@@ -12,6 +12,7 @@ class AccountTypeCode(str,enum.Enum):
     SAVINGS = 'SAVINGS'       
     SYSTEM_FEES = 'SYSTEM_FEES'
 
+
 class TransactionStatus(str,enum.Enum):
     pending = "PENDING"
     completed = "COMPLETED"

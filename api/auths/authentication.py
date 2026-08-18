@@ -6,6 +6,7 @@ from api.models import User,AccountType,Account,AccountTypeCode,RefreshToken
 from api.auths.auths_utitlies import hashPassword,checkPassword,createAccessToken,decodeToken,createRefreshToken,getCurrentUser
 from api.auths.auths_utitlies import createRefreshToken,createAccessToken
 from datetime import datetime,timezone
+from fastapi.security import OAuth2PasswordRequestForm
 
 auths_router = APIRouter()
 
@@ -44,11 +45,11 @@ def register(user : UserRegister, db : Session = Depends(get_db)):
 
 # Login route
 @auths_router.post('/api/login')
-def login(response : Response, user_data : UserLogin, db: Session = Depends(get_db)):
+def login(response : Response, user_data : OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     # now the OAuth2PasswordRequestForm will automatically handle forms
     print('i am hitting your login for authentication....')
     user = db.query(User).filter(
-        (User.email == user_data.email)
+        (User.email == user_data.username) # username is email
     ).first()
 
     if not user or not checkPassword(user_data.password, user.password):

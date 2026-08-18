@@ -7,6 +7,11 @@ from datetime import datetime,timezone,timedelta
 from fastapi import Depends,HTTPException
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 import uuid
+from api.models import User
+from api.database import get_db
+from sqlalchemy.orm import Session
+from fastapi import status
+
 load_dotenv()
 
 
@@ -60,16 +65,36 @@ def decodeToken(token: str) -> str | None:
     """Decodes a JWT token and returns the user email string if valid."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        return payload.get('sub')  # Returns the pre-lowercased string directly
+        return payload # Returns the dict obj 
     except JWTError:
         return None
 
 
 ################ GET CURRENT USER ######################
 oauth_scheme = OAuth2PasswordBearer(tokenUrl='/api/login')
-def getCurrentUser(token: str = Depends(oauth_scheme)):
-    payload = decodeToken(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail='Invalid or expired token')
-    email = payload.get('sub')
-    return email
+def getCurrentUser(
+    token: str = Depends(oauth_scheme), 
+    db: Session = Depends(get_db)
+):
+    payload = decodeToken(token) # This should return a dict or None
+    
+    if not payload or not isinstance(payload, dict):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail='Invalid or expired token'
+        )
+    
+    email: str = payload.get('sub')
+    if email is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, 
+            detail='Token payload missing subject'
+        )
+
+    # Fetch the actual user record so the rest of your app works
+    user = db.query(User).filter(User.email == email).first()
+    
+    if user is None:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    return user # Now this is a DB object, not just a string
