@@ -38,7 +38,16 @@ def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),curre
    # atomic commits
    db.commit()
 
-   return {'success':True}
+   return {
+    'message': 'Transaction successful',
+    'details': {
+        'transaction_id': new_transaction.public_id,
+        'type': new_transaction.type.value,
+        'amount': deposit.amount,
+        'description': deposit.description,
+        'status': new_transaction.status.value
+    }
+}
 
 @trans_router.post('/transaction/withdraw')
 def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
@@ -67,19 +76,28 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
                                 account_id=new_transaction.account_id,
                                 amount=withdraw.amount)
 
+   db.add(ledger_entry)
    # transaction status change
    new_transaction.status = TransactionStatus.completed
+
    db.commit()
 
-   return {'success':True}
+   return {
+    'message': 'Transaction successful',
+    'details': {
+        'transaction_id': new_transaction.public_id,
+        'type': new_transaction.type.value,
+        'amount': withdraw.amount,
+        'description': withdraw.description,
+        'status': new_transaction.status.value
+    }
+}
+
 
 
 @trans_router.post('/transaction/transfer')
 def transfer_money(db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
    pass
-
-
-
 
 @trans_router.get('/transaction/history')
 def history(db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
