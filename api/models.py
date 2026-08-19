@@ -99,20 +99,13 @@ class Transaction(BASE):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True,autoincrement=True)
-
     public_id = Column(String(36),default=lambda: str(uuid.uuid4()),unique=True, nullable=False)
-
     account_id = Column(Integer,ForeignKey('accounts.id'),nullable=False)
-
     status = Column(String, default=TransactionStatus.pending)
-
     # default transaction type is transfer
     type = Column(String, default=TransactionType.transfer)
-
     created_at = Column(DateTime,default=lambda: datetime.now(timezone.utc),nullable=False)
-
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc),nullable=False)
-
     description = Column(String(255),nullable=False)
 
 
@@ -120,13 +113,9 @@ class LedgerEntries(BASE):
     __tablename__ = "ledger_entries"
 
     id = Column(Integer, primary_key=True,autoincrement=True)
-
     transaction_id = Column(Integer,ForeignKey('transactions.id'),nullable=True)
-
     account_id = Column(Integer,ForeignKey('accounts.id'),nullable=False)
-
     # Numeric not flaot.
     amount = Column(Numeric(precision=12,scale=2),nullable=False)
-
     created_at = Column(DateTime,default=lambda: datetime.now(timezone.utc),nullable=False)
     
