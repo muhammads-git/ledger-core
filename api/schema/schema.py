@@ -35,8 +35,8 @@ class TransferCredentials(BaseModel):
 
 class depositRequest(BaseModel):
    amount : Decimal = Field(gt=0,decimal_places=2)
-   description = str
+   description : str
 
 class withdrawRequest(BaseModel):
-   amount : Decimal = FileExistsError(gt=0, decimal_places=2)
+   amount : Decimal = Field(gt=0, decimal_places=2)
    description : str   

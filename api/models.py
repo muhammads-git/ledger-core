@@ -87,7 +87,7 @@ class AccountType(BASE):
     __tablename__ = 'account_types'
     
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(sqlEnum(AccountTypeName), nullable=False) # e.g., "Standard Checking"
+    name = Column(String, nullable=False) # e.g., "Standard Checking"
 
     # .value so SQLAlchemy stores the raw string ('CHECKINGS') in the database
     code = Column(String(20), default=AccountTypeCode.CHECKINGS.value, nullable=False)
@@ -99,7 +99,7 @@ class Transaction(BASE):
     __tablename__ = "transactions"
 
     id = Column(Integer, primary_key=True,autoincrement=True)
-    public_id = Column(String(36),default=lambda: str(uuid.uuid4()),unique=True, nullable=False)
+    public_id = Column(String, nullable=False)  # reference to account, not unique
     account_id = Column(Integer,ForeignKey('accounts.id'),nullable=False)
     status = Column(String, default=TransactionStatus.pending)
     # default transaction type is transfer

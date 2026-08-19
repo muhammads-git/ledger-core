@@ -42,10 +42,10 @@ def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),curre
     'message': 'Transaction successful',
     'details': {
         'transaction_id': new_transaction.public_id,
-        'type': new_transaction.type.value,
+        'type': new_transaction.type,
         'amount': deposit.amount,
         'description': deposit.description,
-        'status': new_transaction.status.value
+        'status': new_transaction.status
     }
 }
 
@@ -86,10 +86,10 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
     'message': 'Transaction successful',
     'details': {
         'transaction_id': new_transaction.public_id,
-        'type': new_transaction.type.value,
+        'type': new_transaction.type,
         'amount': withdraw.amount,
         'description': withdraw.description,
-        'status': new_transaction.status.value
+        'status': new_transaction.status
     }
 }
 
