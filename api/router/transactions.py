@@ -94,7 +94,7 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
 }
 
 
-
+### double entry book keeping .... industrial way..
 @trans_router.post('/transaction/transfer')
 def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
    user = db.query(Account).filter(Account.user_id == current_user.id).first()
