@@ -26,13 +26,8 @@ class CreateAccountRequest(BaseModel):
    account_type : AccountTypeName
    currency : CurrencyEnum
 
-class TransferCredentials(BaseModel):
-   reciever_public_id : uuid.UUID
-   money : Decimal = Field(gt=0, decimal_places=2)
 
    # deposit schema
-
-
 class depositRequest(BaseModel):
    amount : Decimal = Field(gt=0,decimal_places=2)
    description : str
@@ -40,3 +35,8 @@ class depositRequest(BaseModel):
 class withdrawRequest(BaseModel):
    amount : Decimal = Field(gt=0, decimal_places=2)
    description : str   
+
+class TransferCredentials(BaseModel):
+   reciever_public_id : uuid.UUID
+   amount : Decimal = Field(gt=0, decimal_places=2)
+   description : str

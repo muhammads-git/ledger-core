@@ -8,7 +8,7 @@ from api.auths.auths_utitlies import getCurrentUser
 from api.schema.schema import CreateAccountRequest
 from api.models import AccountTypeCode,AccountTypeName,Transaction,LedgerEntries,TransactionStatus,TransactionType
 from api.schema.schema import CurrencyEnum
-from api.schema.schema import depositRequest,withdrawRequest
+from api.schema.schema import depositRequest,withdrawRequest,TransferCredentials
 
 trans_router = APIRouter()
 
@@ -96,7 +96,38 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
 
 
 @trans_router.post('/transaction/transfer')
-def transfer_money(db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
+def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
+   user = db.query(Account).filter(Account.user_id == current_user.id).first()
+   # check current_balance
+   current_balance = db.execute(text('Select SUM(amount) from ledger_entries WHERE account_id =:account_id '),{
+      'account_id':user.id
+   }).scalar() or 0
+
+   # check balance 
+   if current_balance < transfer.amount:
+      raise HTTPException(status_code=400, detail='Insufficient funds.')
+
+   # transfer money
+   # find account with this public id
+   reciever_acc = db.query(Account).filter(Account.public_id == transfer.reciever_public_id).first()
+   if not reciever_acc:
+      raise HTTPException(status_code=404, detail='Account not found.')
+   
+   # transaction
+   new_transaction = Transaction(
+      public_id=transfer.reciever_public_id,
+      account_id=user.id,
+      type=TransactionType.transfer,
+      description=transfer.description
+
+
+   )
+   db.add(new_transaction)
+
+   # two ledfer entries: 1 for sender account 2 for reciever account....
+
+
+
    pass
 
 @trans_router.get('/transaction/history')
