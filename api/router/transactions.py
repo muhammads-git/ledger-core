@@ -115,7 +115,7 @@ def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db
    
    # transaction
    new_transaction = Transaction(
-      public_id=transfer.reciever_public_id,
+      public_id=user.public_id,
       account_id=user.id,
       type=TransactionType.transfer,
       description=transfer.description
@@ -123,12 +123,41 @@ def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db
 
    )
    db.add(new_transaction)
+   db.flush()
 
-   # two ledfer entries: 1 for sender account 2 for reciever account....
+   # Entry 1 — debit sender (money leaving)
+   sender_entry = LedgerEntries(
+    transaction_id=new_transaction.id,
+    account_id=user.id,              # sender
+    amount=-transfer.amount          # negative — money leaving
+)
+
+   # Entry 2 — credit receiver (money arriving)
+   receiver_entry = LedgerEntries(
+    transaction_id=new_transaction.id,
+    account_id=reciever_acc.id,      # receiver
+    amount=transfer.amount           # positive — money arriving
+)
+
+   db.add(sender_entry)
+   db.add(receiver_entry)
+
+   # mark success
+   new_transaction.status = TransactionStatus.success
+   db.commit()
 
 
-
-   pass
+   return {
+    'message': 'Transfer successful',
+    'details': {
+        'transaction_id': new_transaction.id,
+        'from_account': user.public_id,
+        'to_account': reciever_acc.public_id,
+        'amount': transfer.amount,
+        'description': transfer.description,
+        'status': new_transaction.status
+    }
+}
 
 @trans_router.get('/transaction/history')
 def history(db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
