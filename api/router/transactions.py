@@ -161,16 +161,59 @@ def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db
 
 @trans_router.get('/transaction/history')
 def history(db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
-   pass
+  # fetch the user account
+  user_acc = db.query(Account).filter(Account.user_id == current_user.id).first()
+  if not user_acc:
+     raise HTTPException(status_code=404,detail='User has no wallet account.')
+
+  # user the account id to fetch all the transactions from table
+  transactions_history = db.query(Transaction).filter(Transaction.account_id == user_acc.id).all()
+
+  if not transactions_history:
+     raise HTTPException(status_code=404,detail='No Transactions made yet from this account.')
+
+  # return 
+  return {'success':True,'detail':[{
+     'transaction_id':t.id,
+     'transaction_public_id':t.public_id,
+     'TYPE':t.type,
+     'transaction_description':t.description,
+     'date_time':t.created_at,
+     'STATUS':t.status
+  } 
+  for t in transactions_history
+  ]}
+
+
 
 
 
 @trans_router.get('/transaction/{transaction_id}')
 def transaction_detail(transaction_id : int, db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
-   pass
+     # fetch the user account
+  user_acc = db.query(Account).filter(Account.user_id == current_user.id).first()
+  if not user_acc:
+     raise HTTPException(status_code=404,detail='User has no wallet account.')
 
+  # user the account id to fetch all the transactions from table
+  t = db.query(Transaction).filter(Transaction.account_id == user_acc.id,Transaction.id == transaction_id).first()
 
+  if not t:
+     raise HTTPException(status_code=404,detail='No Transaction record found with this ID.')
 
+  
+
+  return {
+    'success': True,
+    'detail': {
+        'transaction_id': t.id,
+        'public_id': t.public_id,
+        'type': t.type,
+        'description': t.description,
+        'status': t.status,
+        'created_at': t.created_at
+    }
+}
 
 
 
