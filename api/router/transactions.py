@@ -37,7 +37,7 @@ def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),curre
    new_transaction.status = TransactionStatus.completed
    # atomic commits
    db.commit()
-
+ 
    return {
     'message': 'Transaction successful',
     'details': {
