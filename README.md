@@ -1,25 +1,3 @@
-
-
-"I'll use junction table for memberships so users can be in multiple orgs"
-→ that's data architecture
-
-"I'll use two ledger entries per transfer summing to zero"
-→ that's financial architecture
-
-"I'll store ConnectionManager in app.state so all routes share one instance"
-→ that's state management architecture
-Every single one of these is an architectural decision. You made all of them. You can explain all of them.
-
-Architecture is just answers to these questions
-How is data stored?          → database schema, relationships
-How does data flow?          → request → cache → DB → response
-How do components connect?   → API → queue → worker → DB
-What happens when X fails?   → fallback, retry, error handling
-How does it scale?           → caching, queues, load balancing
-You've answered all of these questions in your projects. That IS architecture.
-
-Why it felt "far from reach"
-Because people use the word to sound impressive. "Microservices architecture." "Event-driven architecture." "Hexagonal architecture."
 # Wallet API
 
 A production-grade digital wallet REST API built with FastAPI. Implements double-entry ledger bookkeeping — the same accounting principle used by Stripe, PayPal, and modern banks — ensuring every transaction is immutable, auditable, and mathematically consistent.
