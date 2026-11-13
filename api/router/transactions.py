@@ -74,7 +74,7 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
    # ledger entry
    ledger_entry = LedgerEntries(transaction_id=new_transaction.id,
                                 account_id=new_transaction.account_id,
-                                amount=withdraw.amount)
+                                amount=-withdraw.amount)
 
    db.add(ledger_entry)
    # transaction status change
