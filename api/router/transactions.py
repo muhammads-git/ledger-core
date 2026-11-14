@@ -42,7 +42,7 @@ def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),curre
                                )
    # balance - from bank account
    ledger_entry2 = LedgerEntries(transaction_id=new_transaction.id,
-                                 account_id=clearing_acc.account_id,
+                                 account_id=clearing_acc.id,
                                  amoount=-deposit.amount)
    
    db.add(ledger_entry)
@@ -98,7 +98,7 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
 
    # an entry to BANK added amount to bank
    ledger_entry2 = LedgerEntries(transaction_id=new_transaction.id,
-                                account_id= clearing_acc.account_id,
+                                account_id= clearing_acc.id,
                                 amount=withdraw.amount)
 
    db.add(ledger_entry)
