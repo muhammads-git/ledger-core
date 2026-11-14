@@ -175,7 +175,7 @@ def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db
    db.add(receiver_entry)
 
    # mark success
-   new_transaction.status = TransactionStatus.success
+   new_transaction.status = TransactionStatus.completed
    db.commit()
 
 
