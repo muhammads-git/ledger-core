@@ -6,11 +6,6 @@ from datetime import datetime,timezone,timedelta
 import enum
 
 
-# ENUMSSS
-class AccountTypeCode(str,enum.Enum):
-    CHECKINGS = 'CHECKINGS'
-    SAVINGS = 'SAVINGS'       
-    SYSTEM_FEES = 'SYSTEM_FEES'
 
 
 class TransactionStatus(str,enum.Enum):
@@ -23,11 +18,19 @@ class TransactionType(str,enum.Enum):
     withdrawl = "WITHDRAWL"
     deposit = "DEPOSIT"
 
+############## ACCOUNT TYPESSS NAME/CODE  ##################    
 class AccountTypeName(str, enum.Enum):
     SAVINGS = "Savings Account"
     CHECKING = "Standard Checking"
     BUSINESS = "Business Account"
     WALLET = "Digital Wallet"
+
+# ENUMSSS
+class AccountTypeCode(str,enum.Enum):
+    CHECKINGS = 'CHECKINGS'
+    SAVINGS = 'SAVINGS'       
+    SYSTEM_FEES = 'SYSTEM_FEES'
+
 
 class User(BASE):
     __tablename__ = 'users'
@@ -60,40 +63,28 @@ class RefreshToken(BASE):
     
 class Account(BASE):
     __tablename__ = 'accounts'
-    
     # BigInteger is best for high-volume banking primary keys
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
-    
     # Public ID: Stored as a string, defaults to a random UUID4
     public_id = Column(String(36), default=lambda: str(uuid.uuid4()), unique=True, nullable=False)
-
     # account type id, 
     account_type_id = Column(Integer, ForeignKey('account_types.id'),nullable=False)
-
     # Account status (e.g., 'active', 'frozen', 'closed')
     status = Column(String(20), default='active', nullable=False)
-    
     # Financial architecture: currency USD,PKR
     currency = Column(String(3), default='PKR', nullable=False) 
-    
     # Timezone-aware creation time
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-
-
 
 # 2. Your AccountType Table
 class AccountType(BASE):
     __tablename__ = 'account_types'
-    
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False) # e.g., "Standard Checking"
-
     # .value so SQLAlchemy stores the raw string ('CHECKINGS') in the database
     code = Column(String(20), default=AccountTypeCode.CHECKINGS.value, nullable=False)
-    
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-
 
 class Transaction(BASE):
     __tablename__ = "transactions"

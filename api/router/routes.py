@@ -27,6 +27,7 @@ def create_account(
         code=account_code.value   # e.g., "CHECKINGS"
     )
     db.add(new_acc_type)
+    db.flush() # flush without commiting, returns the new row,,, so we can use it without commiting, as commit is atomic...
 
     # 2. Link to new Account
     new_acc = Account(

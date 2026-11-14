@@ -133,14 +133,14 @@ def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db
    sender_entry = LedgerEntries(
     transaction_id=new_transaction.id,
     account_id=user.id,              # sender
-    amount=-transfer.amount          # negative — money leaving
+    amount=-transfer.amount          # - negative — money leaving
 )
 
    # Entry 2 — credit receiver (money arriving)
    receiver_entry = LedgerEntries(
     transaction_id=new_transaction.id,
     account_id=reciever_acc.id,      # receiver
-    amount=transfer.amount           # positive — money arriving
+    amount=transfer.amount           # + positive — money arriving
 )
 
    db.add(sender_entry)
@@ -206,7 +206,6 @@ def transaction_detail(transaction_id : int, db : Session = Depends(get_db),curr
      raise HTTPException(status_code=404,detail='No Transaction record found with this ID.')
 
   
-
   return {
     'success': True,
     'detail': {
