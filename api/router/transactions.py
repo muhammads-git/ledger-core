@@ -27,12 +27,26 @@ def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),curre
    db.add(new_transaction) # add the transaction
    db.flush() # gets the generated ID without committing
 
+
+   
+   ### get SYSTEM ACCOUNT DETAILS
+   clearing_acc = db.query(Account).filter(Account.public_id == "SYS_CLEARING").first()
+   if not clearing_acc:
+    raise HTTPException(status_code=500, detail="System clearing account not configured.")
+
+
    # ledger entry for this tranaction
    ledger_entry = LedgerEntries(transaction_id=new_transaction.id,
                                 account_id=new_transaction.account_id,
                                 amount=deposit.amount
-                                )
+                               )
+   # balance - from bank account
+   ledger_entry2 = LedgerEntries(transaction_id=new_transaction.id,
+                                 account_id=clearing_acc.account_id,
+                                 amoount=-deposit.amount)
+   
    db.add(ledger_entry)
+   db.add(ledger_entry2)
    # trasaction status chagne
    new_transaction.status = TransactionStatus.completed
    # atomic commits
@@ -51,7 +65,7 @@ def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),curre
 
 @trans_router.post('/transaction/withdraw')
 def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
-   # trasaction entry
+   # user details
    user = db.query(Account).filter(Account.user_id == current_user.id).first()
    # check current_balance
    current_balance = db.execute(text('Select SUM(amount) from ledger_entries WHERE account_id =:account_id '),{
@@ -61,6 +75,12 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
    # check balance 
    if current_balance < withdraw.amount:
       raise HTTPException(status_code=400, detail='Insufficient funds.')
+
+   ### get SYSTEM ACCOUNT DETAILS
+   clearing_acc = db.query(Account).filter(Account.public_id == "SYS_CLEARING").first()
+   if not clearing_acc:
+    raise HTTPException(status_code=500, detail="System clearing account not configured.")
+
 
    # transaction 
    new_transaction = Transaction(account_id=user.id,
@@ -76,7 +96,13 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
                                 account_id=new_transaction.account_id,
                                 amount=-withdraw.amount)
 
+   # an entry to BANK added amount to bank
+   ledger_entry2 = LedgerEntries(transaction_id=new_transaction.id,
+                                account_id= clearing_acc.account_id,
+                                amount=withdraw.amount)
+
    db.add(ledger_entry)
+   db.add(ledger_entry2)
    # transaction status change
    new_transaction.status = TransactionStatus.completed
 
