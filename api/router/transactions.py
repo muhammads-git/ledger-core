@@ -9,7 +9,7 @@ from api.schema.schema import CreateAccountRequest
 from api.models import AccountTypeCode,AccountTypeName,Transaction,LedgerEntries,TransactionStatus,TransactionType
 from api.schema.schema import CurrencyEnum
 from api.schema.schema import depositRequest,withdrawRequest,TransferCredentials
-
+from uuid import UUID
 trans_router = APIRouter()
 
 
@@ -112,7 +112,9 @@ def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db
    reciever_acc = db.query(Account).filter(Account.public_id == transfer.reciever_public_id).first()
    if not reciever_acc:
       raise HTTPException(status_code=404, detail='Account not found.')
-
+   if not isinstance(reciever_acc,UUID):
+      raise HTTPException(status_code=422,detail='Invalid Account ID formate.')
+   
    # check if the transafer is not the same account
    if reciever_acc.id == user.id:
     raise HTTPException(status_code=400, detail='Cannot transfer to yourself')
