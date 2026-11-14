@@ -10,8 +10,11 @@ from api.models import AccountTypeCode,AccountTypeName,Transaction,LedgerEntries
 from api.schema.schema import CurrencyEnum
 from api.schema.schema import depositRequest,withdrawRequest,TransferCredentials
 from uuid import UUID
+
+
 trans_router = APIRouter()
 
+SYSTEM_CLEARING_PUBLIC_ID = "00000000-0000-4000-8000-000000000001"
 
 @trans_router.post('/transaction/deposit')
 def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
@@ -30,7 +33,7 @@ def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),curre
 
    
    ### get SYSTEM ACCOUNT DETAILS
-   clearing_acc = db.query(Account).filter(Account.public_id == "SYS_CLEARING").first()
+   clearing_acc = db.query(Account).filter(Account.public_id == str(SYSTEM_CLEARING_PUBLIC_ID)).first()
    if not clearing_acc:
     raise HTTPException(status_code=500, detail="System clearing account not configured.")
 
@@ -43,7 +46,7 @@ def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),curre
    # balance - from bank account
    ledger_entry2 = LedgerEntries(transaction_id=new_transaction.id,
                                  account_id=clearing_acc.id,
-                                 amoount=-deposit.amount)
+                                 amount=-deposit.amount)
    
    db.add(ledger_entry)
    db.add(ledger_entry2)
@@ -77,7 +80,7 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
       raise HTTPException(status_code=400, detail='Insufficient funds.')
 
    ### get SYSTEM ACCOUNT DETAILS
-   clearing_acc = db.query(Account).filter(Account.public_id == "SYS_CLEARING").first()
+   clearing_acc = db.query(Account).filter(Account.public_id == str(SYSTEM_CLEARING_PUBLIC_ID)).first()
    if not clearing_acc:
     raise HTTPException(status_code=500, detail="System clearing account not configured.")
 
@@ -135,12 +138,10 @@ def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db
 
    # transfer money
    # find account with this public id
-   reciever_acc = db.query(Account).filter(Account.public_id == transfer.reciever_public_id).first()
+   reciever_acc = db.query(Account).filter(Account.public_id == str(transfer.reciever_public_id)).first()
    if not reciever_acc:
       raise HTTPException(status_code=404, detail='Account not found.')
-   if not isinstance(reciever_acc,UUID):
-      raise HTTPException(status_code=422,detail='Invalid Account ID formate.')
-   
+
    # check if the transafer is not the same account
    if reciever_acc.id == user.id:
     raise HTTPException(status_code=400, detail='Cannot transfer to yourself')
