@@ -58,6 +58,22 @@ PostgreSQL (SQLAlchemy ORM + Alembic)
 
 ## Key Design Decisions
 
+**WHY Seperate Table for ACCOUNTTYPES**
+Banks can have different type of account types, SAVINGS, CHECKINGS etc
+and think about when the systems grows, you now have Million of rows
+in Accounts tables, and guess what you need to add another type of accounts
+of your own Policy based, now at production level with that scale, when 
+we add new type of accountsTypes in the same account table, it uses locks 
+and db has to update Million rows.. continue
+
+Secondly, in finetech apps, having million users, every AccountType holds a
+different policy like, savings account can only send 50,000 a day...
+now imagine, changing rule, you just have to update one row in account type table,
+rather than updating the thousands of rows consist of savings type, which requires again
+db locking and app might fumble if traffic is at peak.. so yahh these two are the reasons..
+
+
+
 **Immutable transactions**
 Transactions are never updated after creation. Status moves from PENDING → SUCCESS or FAILED. No record is ever deleted. Full audit trail always available.
 
