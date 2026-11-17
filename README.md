@@ -71,9 +71,8 @@ different policy like, savings account can only send 50,000 a day...
 now imagine, changing rule, you just have to update one row in account type table,
 rather than updating the thousands of rows consist of savings type, which requires again
 db locking and app might fumble if traffic is at peak.. so yahh these two are the reasons..
-
-
-
+Its about when you need to make changes to table, IN LIVE PRODUCTION SYSTEM, HOW much the change may
+affect your services, load, can it tolerate? HOW DB WILL HAVE TO GO THROUGH FOR THAT CHANGE...
 **Immutable transactions**
 Transactions are never updated after creation. Status moves from PENDING → SUCCESS or FAILED. No record is ever deleted. Full audit trail always available.
 
