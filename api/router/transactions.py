@@ -69,7 +69,7 @@ def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),curre
 @trans_router.post('/transaction/withdraw')
 def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
    # user details
-   user = db.query(Account).filter(Account.user_id == current_user.id).first()
+   user = db.query(Account).filter(Account.user_id == current_user.id).with_for_update().first()  #lock this ID row...
    # check current_balance
    current_balance = db.execute(text('Select SUM(amount) from ledger_entries WHERE account_id =:account_id '),{
       'account_id':user.id
