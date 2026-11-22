@@ -110,3 +110,12 @@ class LedgerEntries(BASE):
     amount = Column(Numeric(precision=12,scale=2),nullable=False)
     created_at = Column(DateTime,default=lambda: datetime.now(timezone.utc),nullable=False)
     
+class IdempotencyRecords(BASE):
+    __tablename__ = "idempotency_records"
+
+    id = Column(Integer, autoincrement=True,primary_key=True)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    idempotency_key = Column(String(20), nullable=False)
+    transaction_id = Column(Integer, ForeignKey('transactions.id'),nullable=False)
+    request_hash = Column()
+
