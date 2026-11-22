@@ -109,13 +109,22 @@ class LedgerEntries(BASE):
     # Numeric not flaot.
     amount = Column(Numeric(precision=12,scale=2),nullable=False)
     created_at = Column(DateTime,default=lambda: datetime.now(timezone.utc),nullable=False)
-    
+
+def get_current_time():
+    return datetime.now(timezone.utc)
+
+
 class IdempotencyRecords(BASE):
     __tablename__ = "idempotency_records"
 
     id = Column(Integer, autoincrement=True,primary_key=True)
-    user_id = Column(Integer, ForeignKey('users.id'), nullable=False)
+    user_id = Column(Integer, ForeignKey('users.id'), nullable=False) #key belongs to user
     idempotency_key = Column(String(20), nullable=False)
-    transaction_id = Column(Integer, ForeignKey('transactions.id'),nullable=False)
-    request_hash = Column()
+    transaction_id = Column(Integer, ForeignKey('transactions.id'),nullable=False) # key belongs to a transaction
+    request_hash = Column(String(55),nullable=False) # request hash of all the payload data of the request
+    response_status = Column(Integer,nullable=False) # what status code that reqquest got
+    response_payload = Column(String(255),nullable=False) # the response it had
+    created_at = Column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc)) # not get_current_time() 
+
+
 
