@@ -1,9 +1,9 @@
-from fastapi import FastAPI,HTTPException,Depends,APIRouter,Query,status
+from fastapi import FastAPI,HTTPException,Depends,APIRouter,Query,status,Request
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from api.database import get_db
 from api.schema.schema import TransferCredentials
-from api.models import Account,AccountType,Transaction,LedgerEntries
+from api.models import Account,AccountType,Transaction,LedgerEntries,IdempotencyRecords
 from api.auths.auths_utitlies import getCurrentUser
 from api.schema.schema import CreateAccountRequest
 from api.models import AccountTypeCode,AccountTypeName,Transaction,LedgerEntries,TransactionStatus,TransactionType
@@ -125,72 +125,87 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
 
 ### double entry book keeping .... industrial way..
 @trans_router.post('/transaction/transfer')
-def transfer_money(transfer : TransferCredentials, db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
+def transfer_money(request: Request,transfer : TransferCredentials, db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
    user = db.query(Account).filter(Account.user_id == current_user.id).first()
-   # check current_balance
-   current_balance = db.execute(text('Select SUM(amount) from ledger_entries WHERE account_id =:account_id '),{
-      'account_id':user.id
-   }).scalar() or 0
-
-   # check balance 
-   if current_balance < transfer.amount:
-      raise HTTPException(status_code=400, detail='Insufficient funds.')
-
-   # transfer money
-   # find account with this public id
-   reciever_acc = db.query(Account).filter(Account.public_id == str(transfer.reciever_public_id)).first()
-   if not reciever_acc:
-      raise HTTPException(status_code=404, detail='Account not found.')
-
-   # check if the transafer is not the same account
-   if reciever_acc.id == user.id:
-    raise HTTPException(status_code=400, detail='Cannot transfer to yourself')
+   # get the request header
+   idempotency_key_from_header = request.headers
+   # check key in db
+   idempotency_key = db.query(IdempotencyRecords).filter(IdempotencyRecords.user_id == current_user.id,
+                                                         idempotency_key == idempotency_key_from_header).first()
+   if not idempotency_key:
+     # process the 
    
-   # transaction
-   new_transaction = Transaction(
-      public_id=user.public_id,
-      account_id=user.id,
-      type=TransactionType.transfer,
-      description=transfer.description
+      # check current_balance
+      current_balance = db.execute(text('Select SUM(amount) from ledger_entries WHERE account_id =:account_id '),{
+         'account_id':user.id
+      }).scalar() or 0
+
+      # check balance 
+      if current_balance < transfer.amount:
+         raise HTTPException(status_code=400, detail='Insufficient funds.')
+
+      # transfer money
+      # find account with this public id
+      reciever_acc = db.query(Account).filter(Account.public_id == str(transfer.reciever_public_id)).first()
+      if not reciever_acc:
+         raise HTTPException(status_code=404, detail='Account not found.')
+
+      # check if the transafer is not the same account
+      if reciever_acc.id == user.id:
+         raise HTTPException(status_code=400, detail='Cannot transfer to yourself')
+      
+      # transaction
+      new_transaction = Transaction(
+         public_id=user.public_id,
+         account_id=user.id,
+         type=TransactionType.transfer,
+         description=transfer.description
 
 
+      )
+      db.add(new_transaction)
+      db.flush()
+
+      # Entry 1 — debit sender (money leaving)
+      sender_entry = LedgerEntries(
+      transaction_id=new_transaction.id,
+      account_id=user.id,              # sender
+      amount=-transfer.amount          # - negative — money leaving
    )
-   db.add(new_transaction)
-   db.flush()
 
-   # Entry 1 — debit sender (money leaving)
-   sender_entry = LedgerEntries(
-    transaction_id=new_transaction.id,
-    account_id=user.id,              # sender
-    amount=-transfer.amount          # - negative — money leaving
-)
+      # Entry 2 — credit receiver (money arriving)
+      receiver_entry = LedgerEntries(
+      transaction_id=new_transaction.id,
+      account_id=reciever_acc.id,      # receiver
+      amount=transfer.amount           # + positive — money arriving
+   )
 
-   # Entry 2 — credit receiver (money arriving)
-   receiver_entry = LedgerEntries(
-    transaction_id=new_transaction.id,
-    account_id=reciever_acc.id,      # receiver
-    amount=transfer.amount           # + positive — money arriving
-)
+      db.add(sender_entry)
+      db.add(receiver_entry)
 
-   db.add(sender_entry)
-   db.add(receiver_entry)
+      # mark success
+      new_transaction.status = TransactionStatus.completed
+      db.commit()
 
-   # mark success
-   new_transaction.status = TransactionStatus.completed
-   db.commit()
-
-
-   return {
-    'message': 'Transfer successful',
-    'details': {
-        'transaction_id': new_transaction.id,
-        'from_account': user.public_id,
-        'to_account': reciever_acc.public_id,
-        'amount': transfer.amount,
-        'description': transfer.description,
-        'status': new_transaction.status
-    }
+      return {
+      'message': 'Transfer successful',
+      'details': {
+         'transaction_id': new_transaction.id,
+         'from_account': user.public_id,
+         'to_account': reciever_acc.public_id,
+         'amount': transfer.amount,
+         'description': transfer.description,
+         'status': new_transaction.status
+      }
 }
+   else:
+      # fetch previous request data and return
+      prev_trans = db.query(IdempotencyRecords).filter(IdempotencyRecords.idempotency_key == idempotency_key).first()
+      # get the transaction
+      transaction_history = db.query(Transaction).filter(Transaction.id == prev_trans.transaction_id, Transaction.account_id == prev_trans.account_id).first()
+      # get the ledger entries of that transaction
+      
+
 
 @trans_router.get('/transaction/history')
 def history(db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):

@@ -1,5 +1,6 @@
 from sqlalchemy import String,Column,BigInteger,Integer,DateTime,ForeignKey,Numeric,Index,Boolean,Enum as sqlEnum
 from sqlalchemy.orm import sessionmaker,mapped_column,Mapped
+from sqlalchemy.dialects.postgresql import JSONB
 from api.database import BASE
 import uuid
 from datetime import datetime,timezone,timedelta
@@ -110,8 +111,8 @@ class LedgerEntries(BASE):
     amount = Column(Numeric(precision=12,scale=2),nullable=False)
     created_at = Column(DateTime,default=lambda: datetime.now(timezone.utc),nullable=False)
 
-def get_current_time():
-    return datetime.now(timezone.utc)
+# def get_current_time():
+#     return datetime.now(timezone.utc)
 
 
 class IdempotencyRecords(BASE):
@@ -123,7 +124,8 @@ class IdempotencyRecords(BASE):
     transaction_id = Column(Integer, ForeignKey('transactions.id'),nullable=False) # key belongs to a transaction
     request_hash = Column(String(55),nullable=False) # request hash of all the payload data of the request
     response_status = Column(Integer,nullable=False) # what status code that reqquest got
-    response_payload = Column(String(255),nullable=False) # the response it had
+    response_payload = Column(JSONB,nullable=False) # the response it had
+    # response_header = Column()  # lets pause this for now
     created_at = Column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc)) # not get_current_time() 
 
 
