@@ -128,13 +128,16 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
 def transfer_money(request: Request,transfer : TransferCredentials, db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
    user = db.query(Account).filter(Account.user_id == current_user.id).first()
    # get the request header
-   idempotency_key_from_header = request.headers
+   idempotency_key_from_header = request.headers.get('Idempotency-Key')
    # check key in db
    idempotency_key = db.query(IdempotencyRecords).filter(IdempotencyRecords.user_id == current_user.id,
-                                                         idempotency_key == idempotency_key_from_header).first()
+                          
+                                                    idempotency_key == idempotency_key_from_header).first()
+   # check if the idempotency key is same but request hash is diiff and reject with 409 conflict
+
    if not idempotency_key:
+
      # process the 
-   
       # check current_balance
       current_balance = db.execute(text('Select SUM(amount) from ledger_entries WHERE account_id =:account_id '),{
          'account_id':user.id
@@ -183,11 +186,7 @@ def transfer_money(request: Request,transfer : TransferCredentials, db : Session
       db.add(sender_entry)
       db.add(receiver_entry)
 
-      # mark success
-      new_transaction.status = TransactionStatus.completed
-      db.commit()
-
-      return {
+      response_payload =  {
       'message': 'Transfer successful',
       'details': {
          'transaction_id': new_transaction.id,
@@ -197,14 +196,64 @@ def transfer_money(request: Request,transfer : TransferCredentials, db : Session
          'description': transfer.description,
          'status': new_transaction.status
       }
-}
-   else:
+      }
+      # hash the request data... using hashRequest
+      from api.services.request_hash import hashRequest
+      request_hash = hashRequest(transfer)
+
+      ## add idempotency key to db
+      new_idempotency_key = IdempotencyRecords(
+         user_id = user.id,
+         idempotency_key=idempotency_key_from_header,
+         transaction_id = new_transaction.id,
+         response_payload = response_payload,
+         response_status=200,
+         request_hash=request_hash
+      )
+
+      # mark success
+      new_transaction.status = TransactionStatus.completed
+      db.commit()
+
+
+
+   elif idempotency_key and idempotency_key.request_hash
       # fetch previous request data and return
       prev_trans = db.query(IdempotencyRecords).filter(IdempotencyRecords.idempotency_key == idempotency_key).first()
       # get the transaction
       transaction_history = db.query(Transaction).filter(Transaction.id == prev_trans.transaction_id, Transaction.account_id == prev_trans.account_id).first()
       # get the ledger entries of that transaction
+      ledger_entries = db.query(LedgerEntries).filter(LedgerEntries.transaction_id == transaction_history.id).all()
+      for entry in ledger_entries:
+         account=entry.account_id
+         amount = entry.amount
+         # check for senders and reciever 
+         if amount < 0:
+            sender_amount  = amount
+            sender_account_id = account
+         else:
+            reciever_amount = amount
+            reciever_account_id = account
+
+      #fetch the public id for these IDS
+      sender_details = db.query(Account).filter(Account.user_id == sender_account_id).first()            
+      reciever_details = db.query(Account).filter(Account.user_id == reciever_account_id).first()
+
+
+      return {
+         'message':'Transaction successful.',
+         'details' : {
+            'from_account':sender_details.public_id,
+            'to_account':reciever_details.public_id,
+            'TYPE':TransactionType.transfer,
+            'sender_amount':sender_amount,
+            'reciver_amount':reciever_amount,
+            'STATUS':transaction_history.status
+         }
+      }
+
       
+
 
 
 @trans_router.get('/transaction/history')
