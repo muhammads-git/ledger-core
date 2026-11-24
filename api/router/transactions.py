@@ -124,136 +124,175 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
 }
 
 
-### double entry book keeping .... industrial way..
+from fastapi import HTTPException, Request, Depends
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.orm import Session
+
+from api.services.request_hash import hashRequest
+
+
 @trans_router.post('/transaction/transfer')
-def transfer_money(request: Request,transfer : TransferCredentials, db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
-   user = db.query(Account).filter(Account.user_id == current_user.id).first()
-   # get the request header
-   idempotency_key_from_header = request.headers.get('Idempotency-Key')
-   # check key in db
-   idempotency_key = db.query(IdempotencyRecords).filter(IdempotencyRecords.user_id == current_user.id,
-                          
-                                                    idempotency_key == idempotency_key_from_header).first()
-   # check if the idempotency key is same but request hash is diiff and reject with 409 conflict
+def transfer_money(
+    request: Request,
+    transfer: TransferCredentials,
+    db: Session = Depends(get_db),
+    current_user=Depends(getCurrentUser)
+):
+    try:
+        user = db.query(Account).filter(
+            Account.user_id == current_user.id
+        ).first()
 
-   if not idempotency_key:
+        if not user:
+            raise HTTPException(
+                status_code=404,
+                detail="Account not found."
+            )
 
-     # process the 
-      # check current_balance
-      current_balance = db.execute(text('Select SUM(amount) from ledger_entries WHERE account_id =:account_id '),{
-         'account_id':user.id
-      }).scalar() or 0
+        # 1. Get idempotency key
+        idempotency_key_from_header = request.headers.get(
+            'Idempotency-Key'
+        )
 
-      # check balance 
-      if current_balance < transfer.amount:
-         raise HTTPException(status_code=400, detail='Insufficient funds.')
+        if not idempotency_key_from_header:
+            raise HTTPException(
+                status_code=400,
+                detail="Idempotency-Key header is required."
+            )
 
-      # transfer money
-      # find account with this public id
-      reciever_acc = db.query(Account).filter(Account.public_id == str(transfer.reciever_public_id)).first()
-      if not reciever_acc:
-         raise HTTPException(status_code=404, detail='Account not found.')
+        # 2. Calculate request hash
+        request_hash = hashRequest(transfer)
 
-      # check if the transafer is not the same account
-      if reciever_acc.id == user.id:
-         raise HTTPException(status_code=400, detail='Cannot transfer to yourself')
-      
-      # transaction
-      new_transaction = Transaction(
-         public_id=user.public_id,
-         account_id=user.id,
-         type=TransactionType.transfer,
-         description=transfer.description
+        # 3. Check for an existing idempotency record
+        existing_record = db.query(IdempotencyRecords).filter(
+            IdempotencyRecords.user_id == current_user.id,
+            IdempotencyRecords.idempotency_key == idempotency_key_from_header
+        ).first()
 
+        # 4. Handle retry/ means idempotecy key found with two cases!!
+        if existing_record:
 
-      )
-      db.add(new_transaction)
-      db.flush()
+            # Same key, different request data
+            if existing_record.request_hash != request_hash:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Idempotency key reused with different request data."
+                )
 
-      # Entry 1 — debit sender (money leaving)
-      sender_entry = LedgerEntries(
-      transaction_id=new_transaction.id,
-      account_id=user.id,              # sender
-      amount=-transfer.amount          # - negative — money leaving
-   )
+            # Same key, same request data: replay original response
+            return JSONResponse(
+                status_code=existing_record.response_status,
+                content=existing_record.response_payload
+            )
 
-      # Entry 2 — credit receiver (money arriving)
-      receiver_entry = LedgerEntries(
-      transaction_id=new_transaction.id,
-      account_id=reciever_acc.id,      # receiver
-      amount=transfer.amount           # + positive — money arriving
-   )
+        # 5. Process a new transfer
 
-      db.add(sender_entry)
-      db.add(receiver_entry)
+        current_balance = db.execute(
+            text("""
+                SELECT SUM(amount)
+                FROM ledger_entries
+                WHERE account_id = :account_id
+            """),
+            {"account_id": user.id}
+        ).scalar() or 0
 
-      response_payload =  {
-      'message': 'Transfer successful',
-      'details': {
-         'transaction_id': new_transaction.id,
-         'from_account': user.public_id,
-         'to_account': reciever_acc.public_id,
-         'amount': transfer.amount,
-         'description': transfer.description,
-         'status': new_transaction.status
-      }
-      }
-      # hash the request data... using hashRequest
-      from api.services.request_hash import hashRequest
-      request_hash = hashRequest(transfer)
+        if current_balance < transfer.amount:
+            raise HTTPException(
+                status_code=400,
+                detail="Insufficient funds."
+            )
 
-      ## add idempotency key to db
-      new_idempotency_key = IdempotencyRecords(
-         user_id = current_user.id,
-         idempotency_key=idempotency_key_from_header,
-         transaction_id = new_transaction.id,
-         response_payload = response_payload,
-         response_status=200,
-         request_hash=request_hash
-      )
+        # Find receiver
+        receiver_acc = db.query(Account).filter(
+            Account.public_id == str(transfer.reciever_public_id)
+        ).first()
 
-      # mark success
-      new_transaction.status = TransactionStatus.completed
-      db.commit()
+        if not receiver_acc:
+            raise HTTPException(
+                status_code=404,
+                detail="Account not found."
+            )
 
+        if receiver_acc.id == user.id:
+            raise HTTPException(
+                status_code=400,
+                detail="Cannot transfer to yourself."
+            )
 
+        # 6. Create transaction
+        new_transaction = Transaction(
+            public_id=user.public_id,
+            account_id=user.id,
+            type=TransactionType.transfer,
+            description=transfer.description
+        )
 
-   elif idempotency_key and idempotency_key.request_hash == hashRequest(transfer):
-      # fetch previous request data and return
-      prev_trans = db.query(IdempotencyRecords).filter(IdempotencyRecords.idempotency_key == idempotency_key).first()
-      # get the transaction
-      transaction_history = db.query(Transaction).filter(Transaction.id == prev_trans.transaction_id, Transaction.account_id == prev_trans.account_id).first()
-      # get the ledger entries of that transaction
-      ledger_entries = db.query(LedgerEntries).filter(LedgerEntries.transaction_id == transaction_history.id).all()
-      for entry in ledger_entries:
-         account=entry.account_id
-         amount = entry.amount
-         # check for senders and reciever 
-         if amount < 0:
-            sender_amount  = amount
-            sender_account_id = account
-         else:
-            reciever_amount = amount
-            reciever_account_id = account
+        db.add(new_transaction)
+        db.flush()
 
-      #fetch the public id for these IDS
-      sender_details = db.query(Account).filter(Account.user_id == sender_account_id).first()            
-      reciever_details = db.query(Account).filter(Account.user_id == reciever_account_id).first()
+        # 7. Create double-entry ledger records
+        sender_entry = LedgerEntries(
+            transaction_id=new_transaction.id,
+            account_id=user.id,
+            amount=-transfer.amount
+        )
 
+        receiver_entry = LedgerEntries(
+            transaction_id=new_transaction.id,
+            account_id=receiver_acc.id,
+            amount=transfer.amount
+        )
 
-      return {
-         'message':'Transaction successful.',
-         'details' : {
-            'from_account':sender_details.public_id,
-            'to_account':reciever_details.public_id,
-            'TYPE':TransactionType.transfer,
-            'sender_amount':sender_amount,
-            'reciver_amount':reciever_amount,
-            'STATUS':transaction_history.status
-         }
-      }
-   else:
-      return JSONResponse
+        db.add(sender_entry)
+        db.add(receiver_entry)
+
+        # 8. Mark transaction completed
+        new_transaction.status = TransactionStatus.completed
+
+        # 9. Construct response
+        response_payload = {
+            "message": "Transfer successful",
+            "details": {
+                "transaction_id": new_transaction.id,
+                "from_account": user.public_id,
+                "to_account": receiver_acc.public_id,
+                "amount": transfer.amount,
+                "description": transfer.description,
+                "status": new_transaction.status.value
+                if hasattr(new_transaction.status, "value")
+                else new_transaction.status
+            }
+        }
+
+        # 10. Create idempotency record
+        new_idempotency_record = IdempotencyRecords(
+            user_id=current_user.id,
+            idempotency_key=idempotency_key_from_header,
+            transaction_id=new_transaction.id,
+            response_payload=response_payload,
+            response_status=200,
+            request_hash=request_hash
+        )
+
+        db.add(new_idempotency_record)
+
+        # 11. Commit everything together
+        db.commit()
+
+        # 12. Return original response
+        return JSONResponse(
+            status_code=200,
+            content=response_payload
+        )
+
+    except HTTPException:
+        db.rollback()
+        raise
+
+    except Exception:
+        db.rollback()
+        raise
 
 
       
