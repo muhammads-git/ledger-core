@@ -1,4 +1,4 @@
-from fastapi import FastAPI,HTTPException,Depends,APIRouter,Query,status,Request
+from fastapi import FastAPI,HTTPException,Depends,APIRouter,Query,status,Request,Header
 from sqlalchemy.orm import Session
 from sqlalchemy import text
 from fastapi.responses import JSONResponse
@@ -136,6 +136,7 @@ from api.services.request_hash import hashRequest
 def transfer_money(
     request: Request,
     transfer: TransferCredentials,
+    idempotency_key: str = Header(..., alias="Idempotency-Key"),
     db: Session = Depends(get_db),
     current_user=Depends(getCurrentUser)
 ):
@@ -175,10 +176,16 @@ def transfer_money(
 
             # Same key, different request data
             if existing_record.request_hash != request_hash:
-                raise HTTPException(
-                    status_code=409,
-                    detail="Idempotency key reused with different request data."
-                )
+               return JSONResponse(
+                     status_code=409,
+                           content={
+                           "success": False,
+                           "message": (
+                           "This transfer request has already been submitted "
+                           "with different details. Please start a new transfer."
+                           )
+                           }
+                           )
 
             # Same key, same request data: replay original response
             return JSONResponse(
@@ -257,7 +264,7 @@ def transfer_money(
                 "transaction_id": new_transaction.id,
                 "from_account": user.public_id,
                 "to_account": receiver_acc.public_id,
-                "amount": transfer.amount,
+                "amount": str(transfer.amount), # for json representation... decimal to str
                 "description": transfer.description,
                 "status": new_transaction.status.value
                 if hasattr(new_transaction.status, "value")

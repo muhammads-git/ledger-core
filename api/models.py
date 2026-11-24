@@ -120,13 +120,19 @@ class IdempotencyRecords(BASE):
 
     id = Column(Integer, autoincrement=True,primary_key=True)
     user_id = Column(Integer, ForeignKey('users.id'), nullable=False) #key belongs to user
-    idempotency_key = Column(String(55), nullable=False)
+    idempotency_key = Column(String(55), nullable=False,unique=True)
     transaction_id = Column(Integer, ForeignKey('transactions.id'),nullable=False) # key belongs to a transaction
     request_hash = Column(String(64),nullable=False) # request hash of all the payload data of the request
     response_status = Column(Integer,nullable=False) # what status code that reqquest got
     response_payload = Column(JSONB,nullable=False) # the response it had
     # response_header = Column()  # lets pause this for now
     created_at = Column(DateTime(timezone=True),default=lambda:datetime.now(timezone.utc)) # not get_current_time() 
+
+
+
+
+
+
 
 
 
