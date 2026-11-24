@@ -156,6 +156,22 @@ PASSED
 ================================= 2 passed in 4.51s =================================
 ```
 
+
+# Non-Idempotent Retries Or Duplicate Transactions Problem/Solution
+
+There we had a problem scenario, which goes like, imagine, if a user makes a transaction
+and system process the transaction, checks balance, and commits it successfully. However, 
+before Client sees the Response of request, that it was successful or failed, Client network
+goes weak, and couldnt see the response of transaction.. Now the problem is that, system commited the 
+transaction, transfer , withdrawl , or deposit was already done, but client couldnt see, Now client
+assumes that, transaction failed, so he does a second transaction, now in system he actually did #2 transactions
+instead of one. #That is the problem , a bigger one, that can do alot of damage to client.
+
+# Idempotency-Key
+
+
+
+
 ---
 
 ## Tech Stack

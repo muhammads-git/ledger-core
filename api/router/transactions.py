@@ -1,6 +1,7 @@
 from fastapi import FastAPI,HTTPException,Depends,APIRouter,Query,status,Request
 from sqlalchemy.orm import Session
 from sqlalchemy import text
+from fastapi.responses import JSONResponse
 from api.database import get_db
 from api.schema.schema import TransferCredentials
 from api.models import Account,AccountType,Transaction,LedgerEntries,IdempotencyRecords
@@ -203,7 +204,7 @@ def transfer_money(request: Request,transfer : TransferCredentials, db : Session
 
       ## add idempotency key to db
       new_idempotency_key = IdempotencyRecords(
-         user_id = user.id,
+         user_id = current_user.id,
          idempotency_key=idempotency_key_from_header,
          transaction_id = new_transaction.id,
          response_payload = response_payload,
@@ -217,7 +218,7 @@ def transfer_money(request: Request,transfer : TransferCredentials, db : Session
 
 
 
-   elif idempotency_key and idempotency_key.request_hash
+   elif idempotency_key and idempotency_key.request_hash == hashRequest(transfer):
       # fetch previous request data and return
       prev_trans = db.query(IdempotencyRecords).filter(IdempotencyRecords.idempotency_key == idempotency_key).first()
       # get the transaction
@@ -251,6 +252,9 @@ def transfer_money(request: Request,transfer : TransferCredentials, db : Session
             'STATUS':transaction_history.status
          }
       }
+   else:
+      return JSONResponse
+
 
       
 
