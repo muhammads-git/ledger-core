@@ -1,7 +1,7 @@
 from fastapi import FastAPI,HTTPException,Depends,APIRouter,Query,status,Request,Header
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponseE
 from api.database import get_db
 from api.schema.schema import TransferCredentials
 from api.models import Account,AccountType,Transaction,LedgerEntries,IdempotencyRecords
@@ -21,7 +21,7 @@ SYSTEM_CLEARING_PUBLIC_ID = "00000000-0000-4000-8000-000000000001"
 def deposit_money(deposit : depositRequest ,db : Session = Depends(get_db),current_user=Depends(getCurrentUser)):
 
    # fetch account details of this user 
-   user = db.query(Account).filter(Account.user_id == current_user.id).first()
+   user = db.query(Account).filter(Account.user_id == current_user.id).with_for_update().first()
    # transaction 
    new_transaction = Transaction(account_id=user.id,
    public_id=user.public_id,
@@ -143,7 +143,7 @@ def transfer_money(
     try:
         user = db.query(Account).filter(
             Account.user_id == current_user.id
-        ).first()
+        ).with_for_update().first() # // lock this users row in other schemas......
 
         if not user:
             raise HTTPException(
