@@ -156,87 +156,126 @@ PASSED
 ================================= 2 passed in 4.51s =================================
 ```
 
-### Concurrent Transfers & Deadlock Prevention
+## Concurrent Transfers & Deadlock Prevention
 
-Implemented database-level concurrency control using PostgreSQL row-level locking with SQLAlchemy's `with_for_update()`.
+### Overview
 
-**Locking strategy:**
-- Retrieve sender and receiver accounts.
-- Determine their database IDs.
-- Acquire row-level locks in ascending account ID order.
-- Perform the sender's balance check only after acquiring both locks.
-- Create debit and credit ledger entries.
-- Commit the complete transfer in a single database transaction.
+Implemented concurrent money transfers using PostgreSQL row-level locking through SQLAlchemy's `with_for_update()`.
 
-**Why consistent lock ordering?**
+The goal is to prevent race conditions and avoid deadlocks when multiple transfers attempt to modify the same accounts simultaneously.
 
-When two users initiate opposite-direction transfers simultaneously (A → B and B → A), acquiring locks in inconsistent orders can create a deadlock.
+### Locking Strategy
 
-Acquiring account locks in ascending account ID order ensures that competing transfers request locks in the same order, preventing the circular-wait pattern in this scenario.
+For every transfer:
 
-#### Concurrency test
+1. Retrieve the sender and receiver accounts.
+2. Determine both account IDs.
+3. Sort the IDs in ascending order.
+4. Acquire row-level locks in that consistent order.
+5. Check the sender's available balance after acquiring the locks.
+6. Create the debit and credit ledger entries.
+7. Commit the entire transfer within one database transaction.
 
-Tested using:
+### Why Consistent Lock Ordering?
+
+Consider two simultaneous transfers:
+
+- Transaction 1: Account A → Account B
+- Transaction 2: Account B → Account A
+
+Without consistent lock ordering, one transaction could lock Account A while the other locks Account B. Each could then wait for the account held by the other, creating a deadlock.
+
+By always acquiring locks in ascending account ID order, both transactions request the same accounts in the same order. This prevents that circular-wait pattern.
+
+### Concurrency Test
+
+**Test file:** `api/tests/test_concurrent_opposite_transfers.py`
+
+**Testing tools:**
 - PostgreSQL
 - Pytest
-- FastAPI `TestClient`
-- Python `ThreadPoolExecutor`
-- `threading.Barrier`
+- FastAPI TestClient
+- Python ThreadPoolExecutor
+- Python threading.Barrier
 
 **Test scenario:**
-- Account A starts with Rs. 1,000.
-- Account B starts with Rs. 1,000.
-- Two transfers execute concurrently:
-  - A → B: Rs. 100
-  - B → A: Rs. 100
 
-#### Actual terminal output
+| Account | Initial balance |
+|---|---:|
+| Account A | Rs. 1,000.00 |
+| Account B | Rs. 1,000.00 |
 
-Command executed:
+Two transfers are initiated simultaneously:
+
+| Transfer | Amount |
+|---|---:|
+| Account A → Account B | Rs. 100.00 |
+| Account B → Account A | Rs. 100.00 |
+
+### Actual Test Execution
+
+**Command:**
 
 ```powershell
 pytest -v -s api/tests/test_concurrent_opposite_transfers.py
 ```
 
-Output from the test run:
+**Actual terminal output:**
 
 ```text
-(walletenv) PS D:\walletAPI> pytest -v -s api/tests/test_concurrent_opposite_transfers.py
+============================= test session starts =============================
+platform win32 -- Python 3.13.5, pytest-9.2.0, pluggy-1.7.0 -- D:\walletAPI\walletenv\Scripts\python.exe
+cachedir: .pytest_cache
+rootdir: D:\walletAPI
+configfile: pytest.ini
+plugins: anyio-4.14.0
+collecting ... collected 1 item
 
-platform win32 -- Python 3.13.5, pytest-9.2.0 ...
-collected 1 item
-
-... login for both users ...
-hash logs show both payloads
+api/tests/test_concurrent_opposite_transfers.py::test_concurrent_opposite_transfers i am hitting your login for authentication....
+i am hitting your login for authentication....
+From pydantic object to a dictionary: {'reciever_public_id': 'febd9652-b7ba-496f-99f6-ed2193d21612', 'amount': '100.00', 'description': 'Concurrent A to B'}.
+From pydantic object to a dictionary: {'reciever_public_id': 'e74e3f71-313a-46cb-8de4-a7af6b3fb544', 'amount': '100.00', 'description': 'Concurrent B to A'}.
 
 [Deadlock Test]
-A -> B: 200 {"message":"Transfer successful","details":{"transaction_id":43,"from_account":"...","to_account":"...","amount":"100.00","description":"Concurrent A to B","status":"COMPLETED"}}
-
-B -> A: 200 {"message":"Transfer successful","details":{"transaction_id":42,"from_account":"...","to_account":"...","amount":"100.00","description":"Concurrent B to A","status":"COMPLETED"}}
-
+A -> B: 200 {"message":"Transfer successful","details":{"transaction_id":44,"from_account":"e74e3f71-313a-46cb-8de4-a7af6b3fb544","to_account":"febd9652-b7ba-496f-99f6-ed2193d21612","amount":"100.00","description":"Concurrent A to B","status":"COMPLETED"}}
+B -> A: 200 {"message":"Transfer successful","details":{"transaction_id":45,"from_account":"febd9652-b7ba-496f-99f6-ed2193d21612","to_account":"e74e3f71-313a-46cb-8de4-a7af6b3fb544","amount":"100.00","description":"Concurrent B to A","status":"COMPLETED"}}
 [Deadlock Test] Both transfers completed.
 [Deadlock Test] Both balances: Rs. 1000.00
 [Deadlock Test] Ledger entries balanced.
 PASSED
+
+============================== warnings summary ===============================
+walletenv\Lib\site-packages\anyio\pytest_plugin.py:14
+  D:\walletAPI\walletenv\Lib\site-packages\anyio\pytest_plugin.py:14: PytestRemovedIn10Warning: _pytest.python.CallSpec2 has been renamed to CallSpec.
+  The CallSpec2 alias will be removed in pytest 10.
+  Update imports to use CallSpec instead.
+  See https://docs.pytest.org/en/stable/deprecations.html#callspec2-renamed
+    from _pytest.python import CallSpec2
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+======================== 1 passed, 1 warning in 3.65s =========================
 ```
 
-#### Verified results
+### Test Results
 
-| Verification | Result |
+| Verification | Observed result |
 |---|---|
-| Both concurrent transfers completed | Passed |
-| HTTP response for both transfers | 200 OK |
-| Final Account A balance | Rs. 1,000.00 |
-| Final Account B balance | Rs. 1,000.00 |
-| Transfer transactions created | 2 |
-| Ledger entries created | 4 |
-| Each transaction's debit and credit balance | Passed |
-| Test execution | PASSED |
+| First transfer (A → B) | HTTP 200 |
+| Second transfer (B → A) | HTTP 200 |
+| Completed transactions | 2 |
+| Ledger entries | 4 |
+| Account A final balance | Rs. 1,000.00 |
+| Account B final balance | Rs. 1,000.00 |
+| Debit/credit ledger validation | Passed |
+| Test execution | 1 passed |
 
-**Conclusion:** The test successfully verifies the locking strategy for the tested opposite-direction transfer scenario. It demonstrates that both transfers completed without a deadlock and that the ledger remained balanced.
+### Conclusion
 
-Note: One successful test run is evidence for this execution, not a mathematical guarantee that every possible concurrency schedule is deadlock-free.
+The concurrency test successfully demonstrated that two simultaneous opposite-direction transfers completed without a deadlock in the tested execution.
 
+Both account balances remained correct, and the ledger entries remained balanced.
+
+**Note:** A successful test run is evidence for the tested scenario, not a formal guarantee against every possible deadlock or concurrency issue.
 
 # Non-Idempotent Retries Or Duplicate Transactions Problem/Solution
 
