@@ -1,7 +1,7 @@
 from fastapi import FastAPI,HTTPException,Depends,APIRouter,Query,status,Request,Header
 from sqlalchemy.orm import Session
 from sqlalchemy import text
-from fastapi.responses import JSONResponseE
+from fastapi.responses import JSONResponse
 from api.database import get_db
 from api.schema.schema import TransferCredentials
 from api.models import Account,AccountType,Transaction,LedgerEntries,IdempotencyRecords
@@ -124,12 +124,12 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
 }
 
 
-from fastapi import HTTPException, Request, Depends
-from fastapi.responses import JSONResponse
-from sqlalchemy import text
-from sqlalchemy.orm import Session
+# from fastapi import HTTPException, Request, Depends
+# from fastapi.responses import JSONResponse
+# from sqlalchemy import text
+# from sqlalchemy.orm import Session
 
-from api.services.request_hash import hashRequest
+# from api.services.request_hash import hashRequest
 
 
 @trans_router.post('/transaction/transfer')
@@ -152,11 +152,11 @@ def transfer_money(
             )
 
         # 1. Get idempotency key
-        idempotency_key_from_header = request.headers.get(
-            'Idempotency-Key'
-        )
+        # idempotency_key_from_header = request.headers.get(
+        #     'Idempotency-Key'
+        # )
 
-        if not idempotency_key_from_header:
+        if not idempotency_key:
             raise HTTPException(
                 status_code=400,
                 detail="Idempotency-Key header is required."
@@ -168,7 +168,7 @@ def transfer_money(
         # 3. Check for an existing idempotency record
         existing_record = db.query(IdempotencyRecords).filter(
             IdempotencyRecords.user_id == current_user.id,
-            IdempotencyRecords.idempotency_key == idempotency_key_from_header
+            IdempotencyRecords.idempotency_key == idempotency_key
         ).first()
 
         # 4. Handle retry/ means idempotecy key found with two cases!!
