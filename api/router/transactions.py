@@ -164,8 +164,8 @@ def transfer_money(
         first_id = min(user.id,receiver_acc.id)
         second_id = max(user.id,receiver_acc.id)
         # Now lock the first id first then second... to prevent deadlockss
-        first_acc = db.query(Account).filter(Account.user_id == first_id).with_for_update().first()
-        second_acc = db.query(Account).filter(Account.user_id == second_id).with_for_update().first()
+        first_acc = db.query(Account).filter(Account.id == first_id).with_for_update().first()
+        second_acc = db.query(Account).filter(Account.id == second_id).with_for_update().first()
 
         # Idempotency key from headers , check 
         if not Idempotency_key:
@@ -206,7 +206,6 @@ def transfer_money(
             )
 
         # 5. Process a new transfer
-
         current_balance = db.execute(
             text("""
                 SELECT SUM(amount)

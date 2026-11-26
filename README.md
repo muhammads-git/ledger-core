@@ -156,6 +156,87 @@ PASSED
 ================================= 2 passed in 4.51s =================================
 ```
 
+### Concurrent Transfers & Deadlock Prevention
+
+Implemented database-level concurrency control using PostgreSQL row-level locking with SQLAlchemy's `with_for_update()`.
+
+**Locking strategy:**
+- Retrieve sender and receiver accounts.
+- Determine their database IDs.
+- Acquire row-level locks in ascending account ID order.
+- Perform the sender's balance check only after acquiring both locks.
+- Create debit and credit ledger entries.
+- Commit the complete transfer in a single database transaction.
+
+**Why consistent lock ordering?**
+
+When two users initiate opposite-direction transfers simultaneously (A → B and B → A), acquiring locks in inconsistent orders can create a deadlock.
+
+Acquiring account locks in ascending account ID order ensures that competing transfers request locks in the same order, preventing the circular-wait pattern in this scenario.
+
+#### Concurrency test
+
+Tested using:
+- PostgreSQL
+- Pytest
+- FastAPI `TestClient`
+- Python `ThreadPoolExecutor`
+- `threading.Barrier`
+
+**Test scenario:**
+- Account A starts with Rs. 1,000.
+- Account B starts with Rs. 1,000.
+- Two transfers execute concurrently:
+  - A → B: Rs. 100
+  - B → A: Rs. 100
+
+#### Actual terminal output
+
+Command executed:
+
+```powershell
+pytest -v -s api/tests/test_concurrent_opposite_transfers.py
+```
+
+Output from the test run:
+
+```text
+(walletenv) PS D:\walletAPI> pytest -v -s api/tests/test_concurrent_opposite_transfers.py
+
+platform win32 -- Python 3.13.5, pytest-9.2.0 ...
+collected 1 item
+
+... login for both users ...
+hash logs show both payloads
+
+[Deadlock Test]
+A -> B: 200 {"message":"Transfer successful","details":{"transaction_id":43,"from_account":"...","to_account":"...","amount":"100.00","description":"Concurrent A to B","status":"COMPLETED"}}
+
+B -> A: 200 {"message":"Transfer successful","details":{"transaction_id":42,"from_account":"...","to_account":"...","amount":"100.00","description":"Concurrent B to A","status":"COMPLETED"}}
+
+[Deadlock Test] Both transfers completed.
+[Deadlock Test] Both balances: Rs. 1000.00
+[Deadlock Test] Ledger entries balanced.
+PASSED
+```
+
+#### Verified results
+
+| Verification | Result |
+|---|---|
+| Both concurrent transfers completed | Passed |
+| HTTP response for both transfers | 200 OK |
+| Final Account A balance | Rs. 1,000.00 |
+| Final Account B balance | Rs. 1,000.00 |
+| Transfer transactions created | 2 |
+| Ledger entries created | 4 |
+| Each transaction's debit and credit balance | Passed |
+| Test execution | PASSED |
+
+**Conclusion:** The test successfully verifies the locking strategy for the tested opposite-direction transfer scenario. It demonstrates that both transfers completed without a deadlock and that the ledger remained balanced.
+
+Note: One successful test run is evidence for this execution, not a mathematical guarantee that every possible concurrency schedule is deadlock-free.
+
 
 # Non-Idempotent Retries Or Duplicate Transactions Problem/Solution
 
