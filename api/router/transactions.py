@@ -11,6 +11,7 @@ from api.models import AccountTypeCode,AccountTypeName,Transaction,LedgerEntries
 from api.schema.schema import CurrencyEnum
 from api.schema.schema import depositRequest,withdrawRequest,TransferCredentials
 from uuid import UUID
+from api.services.request_hash import hashRequest
 
 
 trans_router = APIRouter()
@@ -129,34 +130,45 @@ def withdraw_money(withdraw : withdrawRequest,db : Session = Depends(get_db),cur
 # from sqlalchemy import text
 # from sqlalchemy.orm import Session
 
-# from api.services.request_hash import hashRequest
+
 
 
 @trans_router.post('/transaction/transfer')
 def transfer_money(
     request: Request,
     transfer: TransferCredentials,
-    idempotency_key: str = Header(..., alias="Idempotency-Key"),
+    Idempotency_key: str = Header(..., alias="Idempotency-Key"),
     db: Session = Depends(get_db),
     current_user=Depends(getCurrentUser)
 ):
     try:
         user = db.query(Account).filter(
             Account.user_id == current_user.id
-        ).with_for_update().first() # // lock this users row in other schemas......
+        ).first() 
 
         if not user:
             raise HTTPException(
                 status_code=404,
                 detail="Account not found."
             )
+        # Get reciever acc details 
+        receiver_acc = db.query(Account).filter(
+            Account.public_id == str(transfer.reciever_public_id)).first()
+    
+        if not receiver_acc:
+            raise HTTPException(
+                status_code=404,
+                detail="Account not found."
+            )
+        # find the minimum row,,, and put lock on them
+        first_id = min(user.id,receiver_acc.id)
+        second_id = max(user.id,receiver_acc.id)
+        # Now lock the first id first then second... to prevent deadlockss
+        first_acc = db.query(Account).filter(Account.user_id == first_id).with_for_update().first()
+        second_acc = db.query(Account).filter(Account.user_id == second_id).with_for_update().first()
 
-        # 1. Get idempotency key
-        # idempotency_key_from_header = request.headers.get(
-        #     'Idempotency-Key'
-        # )
-
-        if not idempotency_key:
+        # Idempotency key from headers , check 
+        if not Idempotency_key:
             raise HTTPException(
                 status_code=400,
                 detail="Idempotency-Key header is required."
@@ -168,7 +180,7 @@ def transfer_money(
         # 3. Check for an existing idempotency record
         existing_record = db.query(IdempotencyRecords).filter(
             IdempotencyRecords.user_id == current_user.id,
-            IdempotencyRecords.idempotency_key == idempotency_key
+            IdempotencyRecords.idempotency_key == Idempotency_key
         ).first()
 
         # 4. Handle retry/ means idempotecy key found with two cases!!
@@ -275,7 +287,7 @@ def transfer_money(
         # 10. Create idempotency record
         new_idempotency_record = IdempotencyRecords(
             user_id=current_user.id,
-            idempotency_key=idempotency_key_from_header,
+            idempotency_key=Idempotency_key,
             transaction_id=new_transaction.id,
             response_payload=response_payload,
             response_status=200,
